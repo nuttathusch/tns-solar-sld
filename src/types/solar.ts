@@ -114,4 +114,5 @@ export interface SolarSLDProject {
   paperSize: 'A3' | 'A4';
   orientation: 'landscape';
   customOffsets?: Record<string, ElementOffset>;
+  customTextOverrides?: Record<string, string>;
 }

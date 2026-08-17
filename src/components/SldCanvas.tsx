@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import type { SolarSLDProject, ElementOffset } from '../types/solar';
 import { TitleBlock, TechnicalNotesAndSpecs } from './TitleBlock';
 import { CircuitBreakerSymbol, RelayCircle, GroundSymbol, SpdSymbol, CtSymbol } from './SvgSymbols';
-import { DraggableGroup } from './InteractiveSvg';
+import { DraggableGroup, EditableSvgText } from './InteractiveSvg';
+import { TextEditModal } from './TextEditModal';
 import { Edit3, Move, RotateCcw } from 'lucide-react';
 
 interface SldCanvasProps {
@@ -10,6 +11,10 @@ interface SldCanvasProps {
   svgRef: React.RefObject<SVGSVGElement | null>;
   zoom?: number;
   onProjectChange?: (updater: (prev: SolarSLDProject) => SolarSLDProject) => void;
+  isMoveMode?: boolean;
+  setIsMoveMode?: React.Dispatch<React.SetStateAction<boolean>>;
+  isEditMode?: boolean;
+  setIsEditMode?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const SldCanvas: React.FC<SldCanvasProps> = ({
@@ -17,13 +22,28 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
   svgRef,
   zoom = 1,
   onProjectChange,
+  isMoveMode = false,
+  setIsMoveMode,
+  isEditMode = true,
+  setIsEditMode,
 }) => {
-  const { projectInfo, pvConfig, inverterConfig, combinerConfig, loadCenterConfig } = project;
+  const { projectInfo, pvConfig, inverterConfig, combinerConfig, loadCenterConfig, customTextOverrides } = project;
   const is3Phase = inverterConfig.phase === '3P';
   const isMicro = inverterConfig.systemType === 'microinverter';
 
-  const [isMoveMode, setIsMoveMode] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(true);
+  // Text Edit Modal State
+  const [modalState, setModalState] = useState<{
+    isOpen: boolean;
+    id: string;
+    text: string;
+    label: string;
+    defaultValue?: string;
+  }>({
+    isOpen: false,
+    id: '',
+    text: '',
+    label: '',
+  });
 
   // Master SVG dimensions (standard high-res drawing area)
   const SVG_WIDTH = 1360;
@@ -38,6 +58,10 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
   // Technical Specs & Notes coordinates
   const SPECS_X = 750;
   const SPECS_Y = 440;
+
+  const getText = (key: string, fallback: string): string => {
+    return customTextOverrides?.[key] ?? fallback;
+  };
 
   const handleOffsetChange = (id: string, newOffset: ElementOffset) => {
     if (!onProjectChange) return;
@@ -62,73 +86,95 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
     return project.customOffsets?.[id] || { dx: 0, dy: 0 };
   };
 
-  const handleEditText = (
-    fieldPath: string,
-    currentVal: string,
-    label: string
-  ) => {
-    if (!isEditMode || !onProjectChange) return;
-    const newVal = window.prompt(`แก้ไข ${label}:`, currentVal);
-    if (newVal !== null && newVal !== currentVal) {
-      onProjectChange((prev) => {
-        const next = JSON.parse(JSON.stringify(prev));
-        const parts = fieldPath.split('.');
-        let curr: any = next;
-        for (let i = 0; i < parts.length - 1; i++) {
-          curr = curr[parts[i]];
-        }
-        curr[parts[parts.length - 1]] = newVal;
-        return next;
-      });
-    }
+  const handleOpenEdit = (id: string, currentText: string, label: string) => {
+    setModalState({
+      isOpen: true,
+      id,
+      text: currentText,
+      label,
+    });
+  };
+
+  const handleSaveText = (newVal: string) => {
+    if (!onProjectChange || !modalState.id) return;
+    onProjectChange((prev) => ({
+      ...prev,
+      customTextOverrides: {
+        ...(prev.customTextOverrides || {}),
+        [modalState.id]: newVal,
+      },
+    }));
+  };
+
+  const handleResetSingleText = () => {
+    if (!onProjectChange || !modalState.id) return;
+    onProjectChange((prev) => {
+      const nextOverrides = { ...(prev.customTextOverrides || {}) };
+      delete nextOverrides[modalState.id];
+      return {
+        ...prev,
+        customTextOverrides: nextOverrides,
+      };
+    });
   };
 
   return (
-    <div className="flex flex-col items-center w-full max-w-full">
-      {/* Top Interactive Canvas Bar */}
-      <div className="flex items-center justify-between w-full max-w-[1360px] mb-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-300 gap-2">
+    <div className="flex flex-col items-center w-full max-w-full relative">
+      {/* Sticky High-Visibility Toolbar */}
+      <div className="flex items-center justify-between w-full max-w-[1360px] mb-2 px-3.5 py-2 bg-slate-950/90 backdrop-blur-md border border-slate-700/80 rounded-xl text-xs text-slate-200 gap-3 shadow-lg z-10 sticky top-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-semibold text-slate-200">🛠️ โหมดเขียนแบบ CAD:</span>
+          <span className="font-bold text-amber-400 flex items-center gap-1.5">
+            <span>📐 โหมดแก้ไข CAD:</span>
+          </span>
+
           {/* Toggle Direct Text Edit Mode */}
           <button
-            onClick={() => setIsEditMode(!isEditMode)}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold transition ${
+            onClick={() => setIsEditMode?.(!isEditMode)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition shadow-xs ${
               isEditMode
-                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                : 'bg-slate-800 text-slate-400 border-slate-700'
+                ? 'bg-amber-500 text-slate-950 border-amber-400'
+                : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
             }`}
           >
-            <Edit3 size={13} />
-            <span>คลิกแก้ไขข้อความในแบบ ({isEditMode ? 'เปิด' : 'ปิด'})</span>
+            <Edit3 size={14} />
+            <span>{isEditMode ? '✏️ โหมดคลิกแก้ไขข้อความ (เปิดอยู่)' : '✏️ เปิดโหมดคลิกแก้ไขข้อความ'}</span>
           </button>
 
           {/* Toggle Drag/Move Elements Mode */}
           <button
-            onClick={() => setIsMoveMode(!isMoveMode)}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold transition ${
+            onClick={() => setIsMoveMode?.(!isMoveMode)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition shadow-xs ${
               isMoveMode
-                ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
-                : 'bg-slate-800 text-slate-400 border-slate-700'
+                ? 'bg-sky-500 text-slate-950 border-sky-400 animate-pulse'
+                : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
             }`}
           >
-            <Move size={13} />
-            <span>โหมดลากขยับตำแหน่ง CAD ({isMoveMode ? 'เปิด' : 'ปิด'})</span>
+            <Move size={14} />
+            <span>{isMoveMode ? '🖐️ โหมดลากขยับตำแหน่ง CAD (เปิดอยู่)' : '🖐️ เปิดโหมดลากขยับตำแหน่ง CAD'}</span>
           </button>
 
           {/* Reset All Offsets */}
           <button
             onClick={handleResetPositions}
-            title="รีเซ็ตตำแหน่งวัตถุกลับค่ามาตรฐาน"
-            className="flex items-center gap-1 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition"
+            title="รีเซ็ตตำแหน่งวัตถุกลับค่ามาตรฐานเริ่มต้น"
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition"
           >
-            <RotateCcw size={12} />
-            <span>รีเซ็ตตำแหน่ง</span>
+            <RotateCcw size={13} />
+            <span>รีเซ็ตตำแหน่งเดิม</span>
           </button>
         </div>
 
-        <div className="text-[11px] text-slate-400 hidden md:block">
-          💡 {isEditMode ? 'คลิกที่ข้อความใดๆ ในแบบเพื่อแก้ไขได้ทันที' : ''}
-          {isMoveMode ? ' | คลิกค้างที่บล็อกเพื่อลากขยับตำแหน่ง' : ''}
+        <div className="text-[11px] text-slate-300 hidden lg:flex items-center gap-2">
+          {isEditMode && (
+            <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded">
+              💡 คลิกที่ข้อความใดก็ได้บนแบบเพื่อแก้ไข
+            </span>
+          )}
+          {isMoveMode && (
+            <span className="bg-sky-500/20 text-sky-300 border border-sky-500/40 px-2 py-0.5 rounded">
+              💡 คลิกลากที่กล่องวัตถุเพื่อขยับตำแหน่ง
+            </span>
+          )}
         </div>
       </div>
 
@@ -171,6 +217,7 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
           {/* ========================================================================= */}
           <DraggableGroup
             id="grid-header"
+            name="หัวต่อสายไฟการไฟฟ้า & มิเตอร์"
             initialX={0}
             initialY={0}
             offset={getOffset('grid-header')}
@@ -179,19 +226,21 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
           >
             {/* Main Grid Line */}
             <line x1="50" y1="65" x2="700" y2="65" stroke="#000" strokeWidth="2" />
-            <text
-              x="350"
-              y="55"
-              fontFamily="Arial, sans-serif"
+            <EditableSvgText
+              id="grid.systemTitle"
+              x={350}
+              y={55}
+              text={getText(
+                'grid.systemTitle',
+                `${projectInfo.gridAuthority} Distribution System ${projectInfo.gridVoltage}`
+              )}
+              label="หัวข้อระบบจำหน่ายไฟฟ้า"
+              onOpenEdit={handleOpenEdit}
               fontSize="11"
               fontWeight="bold"
               textAnchor="middle"
-              fill="#000"
-              onClick={() => handleEditText('projectInfo.gridAuthority', projectInfo.gridAuthority, 'การไฟฟ้า')}
-              className={isEditMode ? 'cursor-pointer hover:fill-amber-600' : ''}
-            >
-              {projectInfo.gridAuthority} Distribution System {projectInfo.gridVoltage}
-            </text>
+              isEditMode={isEditMode}
+            />
 
             {/* kWh Meter */}
             <rect x="290" y="78" width="44" height="24" fill="#fff" stroke="#000" strokeWidth="1.5" />
@@ -204,28 +253,43 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
             {/* PEA / Customer Boundary Marker */}
             <g transform="translate(130, 90)">
               <path d="M 0 0 L 0 35 M -5 8 L 0 0 L 5 8" fill="none" stroke="#000" strokeWidth="1" />
-              <text x="8" y="10" fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
-                {projectInfo.gridAuthority}
-              </text>
-              <text x="8" y="22" fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
-                CUSTOMER
-              </text>
+              <EditableSvgText
+                id="grid.authorityName"
+                x={8}
+                y={10}
+                text={getText('grid.authorityName', projectInfo.gridAuthority)}
+                label="ชื่อการไฟฟ้า (PEA/MEA)"
+                onOpenEdit={handleOpenEdit}
+                fontSize="8"
+                fontWeight="bold"
+                isEditMode={isEditMode}
+              />
+              <EditableSvgText
+                id="grid.customerBoundary"
+                x={8}
+                y={22}
+                text={getText('grid.customerBoundary', 'CUSTOMER')}
+                label="ป้ายแบ่งเขตผู้ใช้ไฟฟ้า"
+                onOpenEdit={handleOpenEdit}
+                fontSize="8"
+                fontWeight="bold"
+                isEditMode={isEditMode}
+              />
               <line x1="-30" y1="18" x2="60" y2="18" stroke="#666" strokeWidth="0.8" strokeDasharray="3 3" />
             </g>
 
             {/* Service Drop Cable Callout */}
-            <text
-              x="375"
-              y="118"
-              fontFamily="Arial, sans-serif"
+            <EditableSvgText
+              id="grid.cableSpec"
+              x={375}
+              y={118}
+              text={getText('grid.cableSpec', projectInfo.gridCableSpec)}
+              label="สเปกสายเมนเข้าอาคาร"
+              onOpenEdit={handleOpenEdit}
               fontSize="8"
               fontWeight="bold"
-              fill="#000"
-              onClick={() => handleEditText('projectInfo.gridCableSpec', projectInfo.gridCableSpec, 'สเปกสายเมนเข้าอาคาร')}
-              className={isEditMode ? 'cursor-pointer hover:fill-amber-600' : ''}
-            >
-              {projectInfo.gridCableSpec}
-            </text>
+              isEditMode={isEditMode}
+            />
 
             {/* Consumption CTs */}
             <g transform="translate(312, 130)">
@@ -234,17 +298,16 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
               <text x="14" y="-3" fontFamily="Arial, sans-serif" fontSize="7.5" fontWeight="bold" fill="#000">
                 Consumption CT's
               </text>
-              <text
-                x="14"
-                y="8"
-                fontFamily="Arial, sans-serif"
+              <EditableSvgText
+                id="grid.consumptionCt"
+                x={14}
+                y={8}
+                text={getText('grid.consumptionCt', combinerConfig.consumptionCt)}
+                label="Consumption CT Spec"
+                onOpenEdit={handleOpenEdit}
                 fontSize="7.5"
-                fill="#000"
-                onClick={() => handleEditText('combinerConfig.consumptionCt', combinerConfig.consumptionCt, 'Consumption CT')}
-                className={isEditMode ? 'cursor-pointer hover:fill-amber-600' : ''}
-              >
-                {combinerConfig.consumptionCt}
-              </text>
+                isEditMode={isEditMode}
+              />
               {/* CT Secondary Wire down to Combiner Box */}
               <path
                 d="M 12 4 L 470 4 L 470 380"
@@ -253,9 +316,17 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
                 strokeWidth="0.9"
                 strokeDasharray="4 2"
               />
-              <text x="500" y="240" fontFamily="Arial, sans-serif" fontSize="7" fill="#444">
-                Consumption CT's Wire in wireway
-              </text>
+              <EditableSvgText
+                id="grid.ctWireNote"
+                x={500}
+                y={240}
+                text={getText('grid.ctWireNote', "Consumption CT's Wire in wireway")}
+                label="คำอธิบายสาย Consumption CT"
+                onOpenEdit={handleOpenEdit}
+                fontSize="7"
+                fill="#444"
+                isEditMode={isEditMode}
+              />
             </g>
           </DraggableGroup>
 
@@ -264,6 +335,7 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
           {/* ========================================================================= */}
           <DraggableGroup
             id="load-center"
+            name="ตู้ MDB / Consumer Unit"
             initialX={180}
             initialY={150}
             offset={getOffset('load-center')}
@@ -272,25 +344,24 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
           >
             {/* Box outline */}
             <rect x="0" y="0" width="265" height="155" fill="#fff" stroke="#000" strokeWidth="1.2" />
-            <text
-              x="10"
-              y="14"
-              fontFamily="Arial, sans-serif"
+            <EditableSvgText
+              id="lc.title"
+              x={10}
+              y={14}
+              text={getText('lc.title', loadCenterConfig.title)}
+              label="ชื่อตู้ MDB / Consumer Unit"
+              onOpenEdit={handleOpenEdit}
               fontSize="8"
               fontWeight="bold"
-              fill="#000"
-              onClick={() => handleEditText('loadCenterConfig.title', loadCenterConfig.title, 'ชื่อตู้ MDB / Consumer Unit')}
-              className={isEditMode ? 'cursor-pointer hover:fill-amber-600' : ''}
-            >
-              {loadCenterConfig.title}
-            </text>
+              isEditMode={isEditMode}
+            />
 
             {/* Main Breaker */}
             <CircuitBreakerSymbol
               x={132}
               y={40}
               poles={is3Phase ? 3 : 2}
-              label={loadCenterConfig.mainBreaker.split('IC')[0] || loadCenterConfig.mainBreaker}
+              label={getText('lc.mainBreaker', loadCenterConfig.mainBreaker.split('IC')[0] || loadCenterConfig.mainBreaker)}
               sublabel={loadCenterConfig.mainBreaker.includes('IC') ? `IC ${loadCenterConfig.mainBreaker.split('IC')[1]}` : ''}
             />
 
@@ -319,7 +390,7 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
                 y={25}
                 poles={is3Phase ? 3 : 2}
                 alignFromLeft={false}
-                label={loadCenterConfig.solarFeederBreaker.split('IC')[0] || loadCenterConfig.solarFeederBreaker}
+                label={getText('lc.solarFeeder', loadCenterConfig.solarFeederBreaker.split('IC')[0] || loadCenterConfig.solarFeederBreaker)}
               />
               {/* Feeder line out of Load Center towards Solar Combiner Box */}
               <line x1="0" y1="43" x2="0" y2="80" stroke="#000" strokeWidth="1.8" />
@@ -329,18 +400,34 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
             <g transform="translate(235, 120)">
               <line x1="0" y1="0" x2="35" y2="0" stroke="#000" strokeWidth="1.5" />
               <GroundSymbol x={35} y={0} size={14} />
-              <text x="45" y="10" fontFamily="Arial, sans-serif" fontSize="7" fill="#000">
-                {combinerConfig.groundCableSpec}
-              </text>
-              <text x="45" y="22" fontFamily="Arial, sans-serif" fontSize="6.5" fill="#444">
-                {loadCenterConfig.groundRodSpec}
-              </text>
+              <EditableSvgText
+                id="lc.groundCable"
+                x={45}
+                y={10}
+                text={getText('lc.groundCable', combinerConfig.groundCableSpec)}
+                label="สเปกสายกราวด์ MDB"
+                onOpenEdit={handleOpenEdit}
+                fontSize="7"
+                isEditMode={isEditMode}
+              />
+              <EditableSvgText
+                id="lc.groundRod"
+                x={45}
+                y={22}
+                text={getText('lc.groundRod', loadCenterConfig.groundRodSpec)}
+                label="สเปก Ground Rod MDB"
+                onOpenEdit={handleOpenEdit}
+                fontSize="6.5"
+                fill="#444"
+                isEditMode={isEditMode}
+              />
             </g>
           </DraggableGroup>
 
           {/* Cable Callout: Load Center to Solar Combiner Box */}
           <DraggableGroup
             id="cable-lc-to-cb"
+            name="ป้ายสายเชื่อม MDB ไปยัง Combiner"
             initialX={180}
             initialY={315}
             offset={getOffset('cable-lc-to-cb')}
@@ -348,21 +435,28 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
             isMoveMode={isMoveMode}
           >
             <line x1="195" y1="-10" x2="195" y2="40" stroke="#000" strokeWidth="1.8" />
-            <text
-              x="0"
-              y="15"
-              fontFamily="Arial, sans-serif"
+            <EditableSvgText
+              id="cable.cbToMdb"
+              x={0}
+              y={15}
+              text={getText('cable.cbToMdb', combinerConfig.cableCombinerToMdb)}
+              label="สเปกสาย Combiner ไปยัง MDB"
+              onOpenEdit={handleOpenEdit}
               fontSize="8"
               fontWeight="bold"
-              fill="#000"
-              onClick={() => handleEditText('combinerConfig.cableCombinerToMdb', combinerConfig.cableCombinerToMdb, 'สเปกสาย Combiner ไปยัง MDB')}
-              className={isEditMode ? 'cursor-pointer hover:fill-amber-600' : ''}
-            >
-              {combinerConfig.cableCombinerToMdb}
-            </text>
-            <text x="0" y="28" fontFamily="Arial, sans-serif" fontSize="7" fill="#444">
-              ระบบไฟฟ้าเดิมของผู้ใช้ไฟฟ้า ────► ระบบโซลาร์เซลล์
-            </text>
+              isEditMode={isEditMode}
+            />
+            <EditableSvgText
+              id="cable.boundaryNote"
+              x={0}
+              y={28}
+              text={getText('cable.boundaryNote', 'ระบบไฟฟ้าเดิมของผู้ใช้ไฟฟ้า ────► ระบบโซลาร์เซลล์')}
+              label="คำอธิบายทิศทางการเชื่อมต่อ"
+              onOpenEdit={handleOpenEdit}
+              fontSize="7"
+              fill="#444"
+              isEditMode={isEditMode}
+            />
           </DraggableGroup>
 
           {/* ========================================================================= */}
@@ -370,6 +464,7 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
           {/* ========================================================================= */}
           <DraggableGroup
             id="solar-combiner"
+            name="ตู้ Solar Combiner Box"
             initialX={180}
             initialY={355}
             offset={getOffset('solar-combiner')}
@@ -378,13 +473,26 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
           >
             {/* Main Box Outline */}
             <rect x="0" y="0" width="370" height="205" fill="#fff" stroke="#000" strokeWidth="1.5" />
-            <text x="12" y="16" fontFamily="Arial, sans-serif" fontSize="8.5" fontWeight="bold" fill="#000">
-              {isMicro ? 'Solar Cell Combiner Box' : 'Solar DC/AC Combiner & Distribution Box'}
-            </text>
+            <EditableSvgText
+              id="cb.title"
+              x={12}
+              y={16}
+              text={getText('cb.title', isMicro ? 'Solar Cell Combiner Box' : 'Solar DC/AC Combiner & Distribution Box')}
+              label="ชื่อตู้ Combiner Box"
+              onOpenEdit={handleOpenEdit}
+              fontSize="8.5"
+              fontWeight="bold"
+              isEditMode={isEditMode}
+            />
 
             {/* AC SPD */}
             <g transform="translate(45, 60)">
-              <SpdSymbol x={0} y={0} label={combinerConfig.acSpdRating.split('TYPE')[0] || 'AC SPD'} typeText="TYPE II 20/40kA" />
+              <SpdSymbol
+                x={0}
+                y={0}
+                label={getText('cb.spdLabel', combinerConfig.acSpdRating.split('TYPE')[0] || 'AC SPD')}
+                typeText={getText('cb.spdType', 'TYPE II 20/40kA')}
+              />
               <line x1="0" y1="-40" x2="0" y2="-20" stroke="#000" strokeWidth="1.2" />
               <line x1="0" y1="20" x2="0" y2="50" stroke="#000" strokeWidth="1.2" />
               <GroundSymbol x={0} y={50} size={12} />
@@ -416,8 +524,8 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
                 y={25}
                 poles={is3Phase ? 4 : 2}
                 alignFromLeft={true}
-                label={combinerConfig.rcboRating}
-                sublabel={combinerConfig.rcboType}
+                label={getText('cb.rcboRating', combinerConfig.rcboRating)}
+                sublabel={getText('cb.rcboType', combinerConfig.rcboType)}
               />
 
               {/* Line connecting RCBO to MCB */}
@@ -429,7 +537,7 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
                 y={100}
                 poles={is3Phase ? 3 : 2}
                 alignFromLeft={true}
-                label={combinerConfig.mcbRating}
+                label={getText('cb.mcbRating', combinerConfig.mcbRating)}
               />
 
               {/* Line connecting MCB downward */}
@@ -443,7 +551,7 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
                     y={10}
                     poles={3}
                     alignFromLeft={true}
-                    label={combinerConfig.mccbRating}
+                    label={getText('cb.mccbRating', combinerConfig.mccbRating)}
                   />
                   <line x1="0" y1="28" x2="0" y2="45" stroke="#000" strokeWidth="1.8" />
                 </g>
@@ -469,26 +577,33 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
               {/* Production CTs */}
               <g transform="translate(-10, 80)">
                 <CtSymbol cx={0} cy={0} label="Production CT's" />
-                <text
-                  x="14"
-                  y="12"
-                  fontFamily="Arial, sans-serif"
+                <EditableSvgText
+                  id="cb.productionCt"
+                  x={14}
+                  y={12}
+                  text={getText('cb.productionCt', combinerConfig.productionCt)}
+                  label="Production CT Spec"
+                  onOpenEdit={handleOpenEdit}
                   fontSize="6.5"
-                  fill="#000"
-                  onClick={() => handleEditText('combinerConfig.productionCt', combinerConfig.productionCt, 'Production CT')}
-                  className={isEditMode ? 'cursor-pointer hover:fill-amber-600' : ''}
-                >
-                  {combinerConfig.productionCt}
-                </text>
+                  isEditMode={isEditMode}
+                />
               </g>
 
               {/* Phase Coupler (if 3-Phase Enphase) */}
               {combinerConfig.hasPhaseCoupler && (
                 <g transform="translate(-5, 115)">
                   <rect x="0" y="0" width="105" height="18" fill="#fff" stroke="#000" strokeWidth="1" />
-                  <text x="52" y="12" fontFamily="Arial, sans-serif" fontSize="6.5" textAnchor="middle" fill="#000">
-                    {combinerConfig.phaseCoupler}
-                  </text>
+                  <EditableSvgText
+                    id="cb.phaseCoupler"
+                    x={52}
+                    y={12}
+                    text={getText('cb.phaseCoupler', combinerConfig.phaseCoupler)}
+                    label="Phase Coupler Model"
+                    onOpenEdit={handleOpenEdit}
+                    fontSize="6.5"
+                    textAnchor="middle"
+                    isEditMode={isEditMode}
+                  />
                 </g>
               )}
             </g>
@@ -497,18 +612,34 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
             <g transform="translate(370, 160)">
               <line x1="0" y1="0" x2="35" y2="0" stroke="#000" strokeWidth="1.5" />
               <GroundSymbol x={35} y={0} size={14} />
-              <text x="45" y="8" fontFamily="Arial, sans-serif" fontSize="7" fill="#000">
-                {combinerConfig.groundRodSpec}
-              </text>
-              <text x="45" y="18" fontFamily="Arial, sans-serif" fontSize="6.5" fill="#444">
-                {combinerConfig.groundCableSpec}
-              </text>
+              <EditableSvgText
+                id="cb.groundRod"
+                x={45}
+                y={8}
+                text={getText('cb.groundRod', combinerConfig.groundRodSpec)}
+                label="Ground Rod Spec Combiner"
+                onOpenEdit={handleOpenEdit}
+                fontSize="7"
+                isEditMode={isEditMode}
+              />
+              <EditableSvgText
+                id="cb.groundCable"
+                x={45}
+                y={18}
+                text={getText('cb.groundCable', combinerConfig.groundCableSpec)}
+                label="Ground Cable Spec Combiner"
+                onOpenEdit={handleOpenEdit}
+                fontSize="6.5"
+                fill="#444"
+                isEditMode={isEditMode}
+              />
             </g>
           </DraggableGroup>
 
           {/* Cable Callout: Combiner Box to Inverter / PV Branch */}
           <DraggableGroup
             id="cable-cb-to-inv"
+            name="ป้ายสายเชื่อม Combiner ไปยัง PV Branch"
             initialX={180}
             initialY={565}
             offset={getOffset('cable-cb-to-inv')}
@@ -516,18 +647,17 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
             isMoveMode={isMoveMode}
           >
             <line x1="145" y1="-10" x2="145" y2="40" stroke="#000" strokeWidth="1.8" />
-            <text
-              x="-40"
-              y="20"
-              fontFamily="Arial, sans-serif"
+            <EditableSvgText
+              id="cable.invToCb"
+              x={-40}
+              y={20}
+              text={getText('cable.invToCb', combinerConfig.cableInverterToCombiner)}
+              label="สเปกสาย Inverter ไปยัง Combiner"
+              onOpenEdit={handleOpenEdit}
               fontSize="8"
               fontWeight="bold"
-              fill="#000"
-              onClick={() => handleEditText('combinerConfig.cableInverterToCombiner', combinerConfig.cableInverterToCombiner, 'สเปกสาย Inverter ไปยัง Combiner')}
-              className={isEditMode ? 'cursor-pointer hover:fill-amber-600' : ''}
-            >
-              {combinerConfig.cableInverterToCombiner}
-            </text>
+              isEditMode={isEditMode}
+            />
           </DraggableGroup>
 
           {/* ========================================================================= */}
@@ -539,6 +669,7 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
             /* ------------------------------------------------------------- */
             <DraggableGroup
               id="micro-pv-branch"
+              name="บล็อกแผงโซลาร์ & ไมโครอินเวอร์เตอร์"
               initialX={120}
               initialY={620}
               offset={getOffset('micro-pv-branch')}
@@ -546,15 +677,33 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
               isMoveMode={isMoveMode}
             >
               {/* Header: PV Branch */}
-              <text x="20" y="0" fontFamily="Arial, sans-serif" fontSize="8.5" fontWeight="bold" fill="#000">
-                PV Branch #1 | {pvConfig.panelCount} MODULE
-              </text>
+              <EditableSvgText
+                id="pv.branchHeader"
+                x={20}
+                y={0}
+                text={getText('pv.branchHeader', `PV Branch #1 | ${pvConfig.panelCount} MODULE`)}
+                label="หัวข้อ PV Branch"
+                onOpenEdit={handleOpenEdit}
+                fontSize="8.5"
+                fontWeight="bold"
+                isEditMode={isEditMode}
+              />
 
               {/* Q-Cable Main Bus Line */}
               <line x1="20" y1="85" x2="490" y2="85" stroke="#000" strokeWidth="2" />
-              <text x="240" y="102" fontFamily="Arial, sans-serif" fontSize="7.5" fill="#000">
-                {is3Phase ? 'Enphase Q cable 4x4C (25A)' : '1x2C - Enphase Q cable (25A max)'}
-              </text>
+              <EditableSvgText
+                id="pv.qCableSpec"
+                x={240}
+                y={102}
+                text={getText(
+                  'pv.qCableSpec',
+                  is3Phase ? 'Enphase Q cable 4x4C (25A)' : '1x2C - Enphase Q cable (25A max)'
+                )}
+                label="สเปก Q-Cable"
+                onOpenEdit={handleOpenEdit}
+                fontSize="7.5"
+                isEditMode={isEditMode}
+              />
               <text x="5" y="90" fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
                 {is3Phase ? '3L+N' : 'L+N'}
               </text>
@@ -618,15 +767,44 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
 
               {/* Microinverter & PV Specs Callout */}
               <g transform="translate(0, 115)">
-                <text x="20" y="15" fontFamily="Arial, sans-serif" fontSize="8.5" fill="#000">
-                  Number of PV Module = {pvConfig.panelCount} Module, Maximum Power at {pvConfig.powerPerPanel} Wp
-                </text>
-                <text x="20" y="30" fontFamily="Arial, sans-serif" fontSize="8.5" fontWeight="bold" fill="#000">
-                  PV System Power = {pvConfig.totalKwp} kWp
-                </text>
-                <text x="20" y="48" fontFamily="Arial, sans-serif" fontSize="9.5" fontWeight="bold" fill="#000">
-                  AC output power (peak) = {inverterConfig.microinverterCount} Module x {inverterConfig.unitPowerVa}VA = {inverterConfig.totalOutputKva} kVA ({inverterConfig.totalOutputKw} kW)
-                </text>
+                <EditableSvgText
+                  id="pv.moduleCountNote"
+                  x={20}
+                  y={15}
+                  text={getText(
+                    'pv.moduleCountNote',
+                    `Number of PV Module = ${pvConfig.panelCount} Module, Maximum Power at ${pvConfig.powerPerPanel} Wp`
+                  )}
+                  label="ข้อความจำนวนและกำลังแผง"
+                  onOpenEdit={handleOpenEdit}
+                  fontSize="8.5"
+                  isEditMode={isEditMode}
+                />
+                <EditableSvgText
+                  id="pv.totalPowerNote"
+                  x={20}
+                  y={30}
+                  text={getText('pv.totalPowerNote', `PV System Power = ${pvConfig.totalKwp} kWp`)}
+                  label="ข้อความ PV System Power"
+                  onOpenEdit={handleOpenEdit}
+                  fontSize="8.5"
+                  fontWeight="bold"
+                  isEditMode={isEditMode}
+                />
+                <EditableSvgText
+                  id="pv.acPeakNote"
+                  x={20}
+                  y={48}
+                  text={getText(
+                    'pv.acPeakNote',
+                    `AC output power (peak) = ${inverterConfig.microinverterCount} Module x ${inverterConfig.unitPowerVa}VA = ${inverterConfig.totalOutputKva} kVA (${inverterConfig.totalOutputKw} kW)`
+                  )}
+                  label="ข้อความ AC Output Power Peak"
+                  onOpenEdit={handleOpenEdit}
+                  fontSize="9.5"
+                  fontWeight="bold"
+                  isEditMode={isEditMode}
+                />
               </g>
             </DraggableGroup>
           ) : (
@@ -635,6 +813,7 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
             /* ------------------------------------------------------------- */
             <DraggableGroup
               id="string-pv-branch"
+              name="บล็อก String Inverter & DC Box"
               initialX={120}
               initialY={610}
               offset={getOffset('string-pv-branch')}
@@ -642,9 +821,20 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
               isMoveMode={isMoveMode}
             >
               {/* Header: PV Array Strings */}
-              <text x="20" y="0" fontFamily="Arial, sans-serif" fontSize="8.5" fontWeight="bold" fill="#000">
-                PV Array ({inverterConfig.stringCount} String(s) x {inverterConfig.modulesPerString} Modules = {pvConfig.panelCount} Modules)
-              </text>
+              <EditableSvgText
+                id="string.arrayHeader"
+                x={20}
+                y={0}
+                text={getText(
+                  'string.arrayHeader',
+                  `PV Array (${inverterConfig.stringCount} String(s) x ${inverterConfig.modulesPerString} Modules = ${pvConfig.panelCount} Modules)`
+                )}
+                label="หัวข้อ PV Array String"
+                onOpenEdit={handleOpenEdit}
+                fontSize="8.5"
+                fontWeight="bold"
+                isEditMode={isEditMode}
+              />
 
               {/* DC Protection Box */}
               <rect x="20" y="15" width="220" height="90" fill="#fff" stroke="#000" strokeWidth="1.2" strokeDasharray="3 2" />
@@ -675,15 +865,38 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
               <g transform="translate(270, 15)">
                 <rect x="0" y="0" width="200" height="90" fill="#fff" stroke="#000" strokeWidth="1.8" />
                 <rect x="5" y="5" width="190" height="20" fill="#f1f5f9" stroke="#000" strokeWidth="0.8" />
-                <text x="100" y="18" fontFamily="Arial, sans-serif" fontSize="8.5" fontWeight="bold" textAnchor="middle" fill="#000">
-                  {inverterConfig.brand} {inverterConfig.model}
-                </text>
-                <text x="15" y="42" fontFamily="Arial, sans-serif" fontSize="7" fill="#000">
-                  • Rated AC Power: {inverterConfig.stringInverterCapacityKw} kW
-                </text>
-                <text x="15" y="55" fontFamily="Arial, sans-serif" fontSize="7" fill="#000">
-                  • Max AC Apparent Power: {(inverterConfig.unitPowerVa / 1000).toFixed(1)} kVA
-                </text>
+                <EditableSvgText
+                  id="string.invTitle"
+                  x={100}
+                  y={18}
+                  text={getText('string.invTitle', `${inverterConfig.brand} ${inverterConfig.model}`)}
+                  label="ชื่อและรุ่น Inverter ในกล่อง"
+                  onOpenEdit={handleOpenEdit}
+                  fontSize="8.5"
+                  fontWeight="bold"
+                  textAnchor="middle"
+                  isEditMode={isEditMode}
+                />
+                <EditableSvgText
+                  id="string.ratedPower"
+                  x={15}
+                  y={42}
+                  text={getText('string.ratedPower', `• Rated AC Power: ${inverterConfig.stringInverterCapacityKw} kW`)}
+                  label="Rated AC Power Inverter"
+                  onOpenEdit={handleOpenEdit}
+                  fontSize="7"
+                  isEditMode={isEditMode}
+                />
+                <EditableSvgText
+                  id="string.apparentPower"
+                  x={15}
+                  y={55}
+                  text={getText('string.apparentPower', `• Max AC Apparent Power: ${(inverterConfig.unitPowerVa / 1000).toFixed(1)} kVA`)}
+                  label="Max AC Apparent Power"
+                  onOpenEdit={handleOpenEdit}
+                  fontSize="7"
+                  isEditMode={isEditMode}
+                />
                 <text x="15" y="68" fontFamily="Arial, sans-serif" fontSize="7" fill="#000">
                   • Built-in Anti-Islanding Protection
                 </text>
@@ -700,12 +913,33 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
 
               {/* Specs summary text */}
               <g transform="translate(20, 115)">
-                <text x="0" y="15" fontFamily="Arial, sans-serif" fontSize="8.5" fill="#000">
-                  Number of PV Module = {pvConfig.panelCount} Module, Maximum Power at {pvConfig.powerPerPanel} Wp
-                </text>
-                <text x="0" y="30" fontFamily="Arial, sans-serif" fontSize="8.5" fontWeight="bold" fill="#000">
-                  PV System Power = {pvConfig.totalKwp} kWp | Inverter Output = {inverterConfig.totalOutputKw} kW
-                </text>
+                <EditableSvgText
+                  id="string.summaryModules"
+                  x={0}
+                  y={15}
+                  text={getText(
+                    'string.summaryModules',
+                    `Number of PV Module = ${pvConfig.panelCount} Module, Maximum Power at ${pvConfig.powerPerPanel} Wp`
+                  )}
+                  label="ข้อความสรุปจำนวนและกำลังแผง"
+                  onOpenEdit={handleOpenEdit}
+                  fontSize="8.5"
+                  isEditMode={isEditMode}
+                />
+                <EditableSvgText
+                  id="string.summaryPower"
+                  x={0}
+                  y={30}
+                  text={getText(
+                    'string.summaryPower',
+                    `PV System Power = ${pvConfig.totalKwp} kWp | Inverter Output = ${inverterConfig.totalOutputKw} kW`
+                  )}
+                  label="ข้อความสรุปกำลังติดตั้งโซลาร์และเอาต์พุต"
+                  onOpenEdit={handleOpenEdit}
+                  fontSize="8.5"
+                  fontWeight="bold"
+                  isEditMode={isEditMode}
+                />
               </g>
             </DraggableGroup>
           )}
@@ -715,20 +949,43 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
           {/* ========================================================================= */}
           <DraggableGroup
             id="banner-title"
+            name="ชื่อหัวกระดาษแบบหลัก (Banner Title)"
             initialX={100}
             initialY={875}
             offset={getOffset('banner-title')}
             onOffsetChange={handleOffsetChange}
             isMoveMode={isMoveMode}
           >
-            <text x="350" y="0" fontFamily="Arial, sans-serif" fontSize="13" fontWeight="bold" textAnchor="middle" fill="#000">
-              Electrical Single Line Diagram Solar Roof Top - ON GRID
-            </text>
-            <text x="350" y="18" fontFamily="Arial, sans-serif" fontSize="10" fontWeight="bold" textAnchor="middle" fill="#222">
-              {isMicro
-                ? `AC output power (peak) = ${inverterConfig.microinverterCount} Module x ${inverterConfig.unitPowerVa} VA = ${inverterConfig.totalOutputKva} kVA`
-                : `Total Solar Installed Capacity = ${pvConfig.totalKwp} kWp | AC Output = ${inverterConfig.totalOutputKw} kW`}
-            </text>
+            <EditableSvgText
+              id="banner.mainTitle"
+              x={350}
+              y={0}
+              text={getText('banner.mainTitle', 'Electrical Single Line Diagram Solar Roof Top - ON GRID')}
+              label="หัวข้อแบบหลัก (Drawing Banner)"
+              onOpenEdit={handleOpenEdit}
+              fontSize="13"
+              fontWeight="bold"
+              textAnchor="middle"
+              isEditMode={isEditMode}
+            />
+            <EditableSvgText
+              id="banner.subTitle"
+              x={350}
+              y={18}
+              text={getText(
+                'banner.subTitle',
+                isMicro
+                  ? `AC output power (peak) = ${inverterConfig.microinverterCount} Module x ${inverterConfig.unitPowerVa} VA = ${inverterConfig.totalOutputKva} kVA`
+                  : `Total Solar Installed Capacity = ${pvConfig.totalKwp} kWp | AC Output = ${inverterConfig.totalOutputKw} kW`
+              )}
+              label="คำอธิบายใต้หัวข้อแบบหลัก"
+              onOpenEdit={handleOpenEdit}
+              fontSize="10"
+              fontWeight="bold"
+              textAnchor="middle"
+              fill="#222"
+              isEditMode={isEditMode}
+            />
           </DraggableGroup>
 
           {/* ========================================================================= */}
@@ -736,21 +993,46 @@ export const SldCanvas: React.FC<SldCanvasProps> = ({
           {/* ========================================================================= */}
           <DraggableGroup
             id="specs-notes"
+            name="ตารางสเปก, Relay Code & โน้ต กฟภ."
             initialX={SPECS_X}
             initialY={SPECS_Y}
             offset={getOffset('specs-notes')}
             onOffsetChange={handleOffsetChange}
             isMoveMode={isMoveMode}
           >
-            <TechnicalNotesAndSpecs project={project} x={0} y={0} />
+            <TechnicalNotesAndSpecs
+              project={project}
+              x={0}
+              y={0}
+              isEditMode={isEditMode}
+              onOpenEdit={handleOpenEdit}
+            />
           </DraggableGroup>
 
           {/* ========================================================================= */}
           {/* 7. TITLE BLOCK (Full Height Right Column)                                 */}
           {/* ========================================================================= */}
-          <TitleBlock project={project} x={TB_X} y={TB_Y} width={TB_WIDTH} height={TB_HEIGHT} />
+          <TitleBlock
+            project={project}
+            x={TB_X}
+            y={TB_Y}
+            width={TB_WIDTH}
+            height={TB_HEIGHT}
+            isEditMode={isEditMode}
+            onOpenEdit={handleOpenEdit}
+          />
         </svg>
       </div>
+
+      {/* Direct Rich Text Edit Modal */}
+      <TextEditModal
+        isOpen={modalState.isOpen}
+        onClose={() => setModalState((s) => ({ ...s, isOpen: false }))}
+        title={modalState.label}
+        initialValue={modalState.text}
+        onSave={handleSaveText}
+        onReset={handleResetSingleText}
+      />
     </div>
   );
 };

@@ -11,6 +11,8 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Edit3,
+  Move,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -26,6 +28,10 @@ interface NavbarProps {
   zoom: number;
   setZoom: React.Dispatch<React.SetStateAction<number>>;
   isExporting: boolean;
+  isEditMode: boolean;
+  setIsEditMode: React.Dispatch<React.SetStateAction<boolean>>;
+  isMoveMode: boolean;
+  setIsMoveMode: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -40,6 +46,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   zoom,
   setZoom,
   isExporting,
+  isEditMode,
+  setIsEditMode,
+  isMoveMode,
+  setIsMoveMode,
 }) => {
   const triggerConfetti = () => {
     confetti({
@@ -79,7 +89,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               triggerConfetti();
             }
           }}
-          className="bg-slate-900 border border-slate-700 text-amber-300 font-medium text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-amber-500 cursor-pointer shadow-sm max-w-[200px] sm:max-w-[240px] truncate"
+          className="bg-slate-900 border border-slate-700 text-amber-300 font-medium text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-amber-500 cursor-pointer shadow-sm max-w-[180px] sm:max-w-[220px] truncate"
         >
           {DEFAULT_PRESETS.map((p) => (
             <option key={p.id} value={p.id}>
@@ -87,6 +97,35 @@ export const Navbar: React.FC<NavbarProps> = ({
             </option>
           ))}
         </select>
+      </div>
+
+      {/* CAD Interactive Modes (Text Edit & Drag Move) */}
+      <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+        <button
+          onClick={() => setIsEditMode(!isEditMode)}
+          title="เปิด/ปิด โหมดคลิกแก้ไขข้อความได้โดยตรงในแบบ"
+          className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-bold transition ${
+            isEditMode
+              ? 'bg-amber-500 text-slate-950 shadow-sm shadow-amber-500/20'
+              : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Edit3 size={13} />
+          <span>{isEditMode ? '✏️ แก้ไขข้อความ (เปิด)' : '✏️ แก้ไขข้อความ'}</span>
+        </button>
+
+        <button
+          onClick={() => setIsMoveMode(!isMoveMode)}
+          title="เปิด/ปิด โหมดลากขยับตำแหน่งบล็อกและข้อความ CAD"
+          className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-bold transition ${
+            isMoveMode
+              ? 'bg-sky-500 text-slate-950 shadow-sm shadow-sky-500/20 animate-pulse'
+              : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Move size={13} />
+          <span>{isMoveMode ? '🖐️ โหมดลาก CAD (เปิด)' : '🖐️ โหมดลาก CAD'}</span>
+        </button>
       </div>
 
       {/* Project Management Buttons (Saved in Web, Open, Make a Copy) */}
@@ -98,7 +137,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-amber-300 font-semibold px-2.5 py-1.5 rounded-lg border border-amber-500/30 transition shadow-sm"
         >
           <FolderOpen size={14} className="text-amber-400" />
-          <span>คลังแบบที่เคยทำ</span>
+          <span>คลังแบบ</span>
           {savedCount > 0 && (
             <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full">
               {savedCount}
@@ -123,7 +162,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="flex items-center gap-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1.5 rounded-lg border border-slate-700 transition"
         >
           <Copy size={13} className="text-sky-400" />
-          <span className="hidden md:inline">ทำสำเนา (Copy)</span>
+          <span className="hidden md:inline">ทำสำเนา</span>
         </button>
       </div>
 

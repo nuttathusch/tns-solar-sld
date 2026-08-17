@@ -1,6 +1,7 @@
 import React from 'react';
 import type { SolarSLDProject } from '../types/solar';
 import { STANDARD_RELAY_ITEMS } from '../constants/equipment';
+import { EditableSvgText } from './InteractiveSvg';
 
 interface TitleBlockProps {
   project: SolarSLDProject;
@@ -8,7 +9,8 @@ interface TitleBlockProps {
   y: number;
   width: number;
   height: number;
-  onProjectChange?: (updater: (prev: SolarSLDProject) => SolarSLDProject) => void;
+  isEditMode?: boolean;
+  onOpenEdit: (id: string, text: string, label: string) => void;
 }
 
 function splitIntoLines(text: string, maxChars: number = 28): string[] {
@@ -44,26 +46,16 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
   y,
   width,
   height,
-  onProjectChange,
+  isEditMode = true,
+  onOpenEdit,
 }) => {
-  const { projectInfo } = project;
+  const { projectInfo, customTextOverrides } = project;
   const leftX = x;
   const rightX = x + width;
   const centerX = x + width / 2;
 
-  const handleEdit = (field: keyof typeof projectInfo, label: string) => {
-    if (!onProjectChange) return;
-    const current = String(projectInfo[field] || '');
-    const newVal = window.prompt(`แก้ไข ${label}:`, current);
-    if (newVal !== null && newVal !== current) {
-      onProjectChange((prev) => ({
-        ...prev,
-        projectInfo: {
-          ...prev.projectInfo,
-          [field]: newVal,
-        },
-      }));
-    }
+  const getText = (key: string, fallback: string) => {
+    return customTextOverrides?.[key] ?? fallback;
   };
 
   // Vertical divisions for Title Block rows
@@ -86,9 +78,21 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
     return r;
   });
 
-  const projectNameLines = splitIntoLines(projectInfo.projectName || 'Solar Rooftop', 24);
-  const ownerLines = splitIntoLines(projectInfo.customerName || '', 22);
-  const locationLines = splitIntoLines(projectInfo.location || '', 26);
+  const projectOwner = getText('tb.projectOwner', projectInfo.projectOwner || 'TNS Network Solutions Co.,Ltd.');
+  const projectName = getText('tb.projectName', projectInfo.projectName || 'Solar Rooftop');
+  const customerName = getText('tb.customerName', projectInfo.customerName || '');
+  const location = getText('tb.location', projectInfo.location || '');
+  const coordinates = getText('tb.coordinates', projectInfo.coordinates || '');
+  const jobNo = getText('tb.jobNo', projectInfo.jobNo || '');
+  const engineerName = getText('tb.engineerName', projectInfo.engineer.name || '');
+  const engineerLicense = getText('tb.engineerLicense', projectInfo.engineer.license || '');
+  const date = getText('tb.date', projectInfo.date || '');
+  const revision = getText('tb.revision', projectInfo.revision || '0');
+  const drawingNo = getText('tb.drawingNo', projectInfo.drawingNo || '');
+
+  const projectNameLines = splitIntoLines(projectName, 24);
+  const ownerLines = splitIntoLines(customerName, 22);
+  const locationLines = splitIntoLines(location, 26);
 
   return (
     <g className="title-block">
@@ -108,101 +112,114 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
       <text x={leftX + 8} y={rows[0].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         PROJECT OWNER :
       </text>
-      <text
+      <EditableSvgText
+        id="tb.projectOwner"
         x={centerX}
         y={rows[0].y + 48}
-        fontFamily="Arial, sans-serif"
+        text={projectOwner}
+        label="Project Owner (เจ้าของโครงการ)"
+        onOpenEdit={onOpenEdit}
         fontSize="10.5"
         fontWeight="bold"
         textAnchor="middle"
-        fill="#000"
-        onClick={() => handleEdit('projectOwner', 'Project Owner')}
-        className="cursor-pointer hover:fill-amber-600"
-      >
-        {projectInfo.projectOwner || 'TNS Network Solutions Co.,Ltd.'}
-      </text>
+        isEditMode={isEditMode}
+      />
 
       {/* Row 1: PROJECT NAME */}
       <line x1={leftX} y1={rows[1].y + rows[1].height} x2={rightX} y2={rows[1].y + rows[1].height} stroke="#000" strokeWidth="1" />
       <text x={leftX + 8} y={rows[1].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         PROJECT NAME :
       </text>
-      <text
-        x={centerX}
-        y={rows[1].y + 36}
-        fontFamily="Arial, sans-serif"
-        fontSize="9"
-        fontWeight="bold"
-        textAnchor="middle"
-        fill="#000"
-        onClick={() => handleEdit('projectName', 'Project Name')}
-        className="cursor-pointer hover:fill-amber-600"
+      <g
+        onClick={() => isEditMode && onOpenEdit('tb.projectName', projectName, 'Project Name (ชื่อโครงการ)')}
+        className={isEditMode ? 'cursor-pointer' : ''}
       >
-        {projectNameLines.map((line, idx) => (
-          <tspan key={idx} x={centerX} dy={idx === 0 ? 0 : 13}>
-            {line}
-          </tspan>
-        ))}
-      </text>
+        {isEditMode && <title>✏️ คลิกเพื่อแก้ไขชื่อโครงการ</title>}
+        <text
+          x={centerX}
+          y={rows[1].y + 36}
+          fontFamily="Arial, sans-serif"
+          fontSize="9"
+          fontWeight="bold"
+          textAnchor="middle"
+          fill="#000"
+          className={isEditMode ? 'hover:fill-amber-600 underline decoration-dotted decoration-amber-400' : ''}
+        >
+          {projectNameLines.map((line, idx) => (
+            <tspan key={idx} x={centerX} dy={idx === 0 ? 0 : 13}>
+              {line}
+            </tspan>
+          ))}
+        </text>
+      </g>
 
       {/* Row 2: OWNER */}
       <line x1={leftX} y1={rows[2].y + rows[2].height} x2={rightX} y2={rows[2].y + rows[2].height} stroke="#000" strokeWidth="1" />
       <text x={leftX + 8} y={rows[2].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         OWNER :
       </text>
-      <text
-        x={centerX}
-        y={rows[2].y + 42}
-        fontFamily="Arial, sans-serif"
-        fontSize="10.5"
-        fontWeight="bold"
-        textAnchor="middle"
-        fill="#000"
-        onClick={() => handleEdit('customerName', 'ชื่อเจ้าของ / ผู้ขออนุญาต (Owner)')}
-        className="cursor-pointer hover:fill-amber-600"
+      <g
+        onClick={() => isEditMode && onOpenEdit('tb.customerName', customerName, 'Owner (ชื่อเจ้าของ/ผู้ขออนุญาต)')}
+        className={isEditMode ? 'cursor-pointer' : ''}
       >
-        {ownerLines.map((line, idx) => (
-          <tspan key={idx} x={centerX} dy={idx === 0 ? 0 : 14}>
-            {line}
-          </tspan>
-        ))}
-      </text>
+        {isEditMode && <title>✏️ คลิกเพื่อแก้ไขชื่อเจ้าของ</title>}
+        <text
+          x={centerX}
+          y={rows[2].y + 42}
+          fontFamily="Arial, sans-serif"
+          fontSize="10.5"
+          fontWeight="bold"
+          textAnchor="middle"
+          fill="#000"
+          className={isEditMode ? 'hover:fill-amber-600 underline decoration-dotted decoration-amber-400' : ''}
+        >
+          {ownerLines.map((line, idx) => (
+            <tspan key={idx} x={centerX} dy={idx === 0 ? 0 : 14}>
+              {line}
+            </tspan>
+          ))}
+        </text>
+      </g>
 
       {/* Row 3: LOCATION */}
       <line x1={leftX} y1={rows[3].y + rows[3].height} x2={rightX} y2={rows[3].y + rows[3].height} stroke="#000" strokeWidth="1" />
       <text x={leftX + 8} y={rows[3].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         LOCATION :
       </text>
-      <text
-        x={centerX}
-        y={rows[3].y + 34}
-        fontFamily="Arial, sans-serif"
-        fontSize="8"
-        textAnchor="middle"
-        fill="#000"
-        onClick={() => handleEdit('location', 'สถานที่ติดตั้ง (Location)')}
-        className="cursor-pointer hover:fill-amber-600"
+      <g
+        onClick={() => isEditMode && onOpenEdit('tb.location', location, 'Location (สถานที่ติดตั้ง)')}
+        className={isEditMode ? 'cursor-pointer' : ''}
       >
-        {locationLines.map((line, idx) => (
-          <tspan key={idx} x={centerX} dy={idx === 0 ? 0 : 12}>
-            {line}
-          </tspan>
-        ))}
-      </text>
-      {projectInfo.coordinates && (
+        {isEditMode && <title>✏️ คลิกเพื่อแก้ไขสถานที่ติดตั้ง</title>}
         <text
           x={centerX}
-          y={rows[3].y + rows[3].height - 12}
+          y={rows[3].y + 34}
           fontFamily="Arial, sans-serif"
+          fontSize="8"
+          textAnchor="middle"
+          fill="#000"
+          className={isEditMode ? 'hover:fill-amber-600 underline decoration-dotted decoration-amber-400' : ''}
+        >
+          {locationLines.map((line, idx) => (
+            <tspan key={idx} x={centerX} dy={idx === 0 ? 0 : 12}>
+              {line}
+            </tspan>
+          ))}
+        </text>
+      </g>
+      {coordinates && (
+        <EditableSvgText
+          id="tb.coordinates"
+          x={centerX}
+          y={rows[3].y + rows[3].height - 12}
+          text={coordinates}
+          label="พิกัด GPS Coordinates"
+          onOpenEdit={onOpenEdit}
           fontSize="8"
           fontWeight="bold"
           textAnchor="middle"
-          fill="#000"
-          onClick={() => handleEdit('coordinates', 'พิกัด GPS')}
-          className="cursor-pointer hover:fill-amber-600"
-        >
-          {projectInfo.coordinates}
-        </text>
+          isEditMode={isEditMode}
+        />
       )}
 
       {/* Row 4: JOB NO. */}
@@ -210,19 +227,18 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
       <text x={leftX + 8} y={rows[4].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         JOB NO. :
       </text>
-      <text
+      <EditableSvgText
+        id="tb.jobNo"
         x={centerX}
         y={rows[4].y + 44}
-        fontFamily="Arial, sans-serif"
+        text={jobNo}
+        label="Job No."
+        onOpenEdit={onOpenEdit}
         fontSize="10.5"
         fontWeight="bold"
         textAnchor="middle"
-        fill="#000"
-        onClick={() => handleEdit('jobNo', 'Job No.')}
-        className="cursor-pointer hover:fill-amber-600"
-      >
-        {projectInfo.jobNo}
-      </text>
+        isEditMode={isEditMode}
+      />
 
       {/* Row 5: ELECTRICAL ENGINEER */}
       <line x1={leftX} y1={rows[5].y + rows[5].height} x2={rightX} y2={rows[5].y + rows[5].height} stroke="#000" strokeWidth="1" />
@@ -243,68 +259,83 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
           />
         )}
       </g>
-      <text x={centerX} y={rows[5].y + 105} fontFamily="Arial, sans-serif" fontSize="9" fontWeight="bold" textAnchor="middle" fill="#000">
-        {projectInfo.engineer.name}
-      </text>
-      <text x={centerX} y={rows[5].y + 122} fontFamily="Arial, sans-serif" fontSize="8.5" textAnchor="middle" fill="#222">
-        {projectInfo.engineer.license}
-      </text>
+      <EditableSvgText
+        id="tb.engineerName"
+        x={centerX}
+        y={rows[5].y + 105}
+        text={engineerName}
+        label="ชื่อวิศวกรไฟฟ้า"
+        onOpenEdit={onOpenEdit}
+        fontSize="9"
+        fontWeight="bold"
+        textAnchor="middle"
+        isEditMode={isEditMode}
+      />
+      <EditableSvgText
+        id="tb.engineerLicense"
+        x={centerX}
+        y={rows[5].y + 122}
+        text={engineerLicense}
+        label="เลขที่ใบอนุญาตวิศวกร (ภฟก.)"
+        onOpenEdit={onOpenEdit}
+        fontSize="8.5"
+        textAnchor="middle"
+        fill="#222"
+        isEditMode={isEditMode}
+      />
 
       {/* Row 6: DATE */}
       <line x1={leftX} y1={rows[6].y + rows[6].height} x2={rightX} y2={rows[6].y + rows[6].height} stroke="#000" strokeWidth="1" />
       <text x={leftX + 8} y={rows[6].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         DATE :
       </text>
-      <text
+      <EditableSvgText
+        id="tb.date"
         x={centerX}
         y={rows[6].y + 40}
-        fontFamily="Arial, sans-serif"
+        text={date}
+        label="วันที่ (Date)"
+        onOpenEdit={onOpenEdit}
         fontSize="10"
         fontWeight="bold"
         textAnchor="middle"
-        fill="#000"
-        onClick={() => handleEdit('date', 'วันที่ (Date)')}
-        className="cursor-pointer hover:fill-amber-600"
-      >
-        {projectInfo.date}
-      </text>
+        isEditMode={isEditMode}
+      />
 
       {/* Row 7: REV / VERSION */}
       <line x1={leftX} y1={rows[7].y + rows[7].height} x2={rightX} y2={rows[7].y + rows[7].height} stroke="#000" strokeWidth="1" />
       <text x={leftX + 8} y={rows[7].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         REV / Version :
       </text>
-      <text
+      <EditableSvgText
+        id="tb.revision"
         x={centerX}
         y={rows[7].y + 40}
-        fontFamily="Arial, sans-serif"
+        text={revision}
+        label="Revision / Version"
+        onOpenEdit={onOpenEdit}
         fontSize="10"
         fontWeight="bold"
         textAnchor="middle"
-        fill="#000"
-        onClick={() => handleEdit('revision', 'Revision')}
-        className="cursor-pointer hover:fill-amber-600"
-      >
-        {projectInfo.revision}
-      </text>
+        isEditMode={isEditMode}
+      />
 
       {/* Row 8: DRAWING NO. */}
       <text x={leftX + 8} y={rows[8].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         DRAWING NO. :
       </text>
-      <text
+      <EditableSvgText
+        id="tb.drawingNo"
         x={centerX}
         y={rows[8].y + 45}
-        fontFamily="Arial, sans-serif"
+        text={drawingNo}
+        label="Drawing No. (เลขที่แบบ)"
+        onOpenEdit={onOpenEdit}
         fontSize="12"
         fontWeight="bold"
         textAnchor="middle"
-        fill="#000"
-        onClick={() => handleEdit('drawingNo', 'Drawing No.')}
-        className="cursor-pointer hover:fill-amber-600"
-      >
-        {projectInfo.drawingNo}
-      </text>
+        isEditMode={isEditMode}
+      />
     </g>
   );
 };
@@ -314,8 +345,14 @@ export const TechnicalNotesAndSpecs: React.FC<{
   project: SolarSLDProject;
   x: number;
   y: number;
-}> = ({ project, x, y }) => {
-  const { pvConfig, inverterConfig, combinerConfig, showRelayTable, showZeroExportNote, showPhaseProtectionNote } = project;
+  isEditMode?: boolean;
+  onOpenEdit: (id: string, text: string, label: string) => void;
+}> = ({ project, x, y, isEditMode = true, onOpenEdit }) => {
+  const { pvConfig, inverterConfig, combinerConfig, showRelayTable, showZeroExportNote, showPhaseProtectionNote, customTextOverrides } = project;
+
+  const getText = (key: string, fallback: string) => {
+    return customTextOverrides?.[key] ?? fallback;
+  };
 
   return (
     <g className="tech-specs-and-notes" transform={`translate(${x}, ${y})`}>
@@ -341,19 +378,46 @@ export const TechnicalNotesAndSpecs: React.FC<{
           {/* Rows */}
           {STANDARD_RELAY_ITEMS.map((item, idx) => {
             const rowY = 28 + idx * 12;
+            const codeText = getText(`relay.${item.code}.code`, item.code);
+            const descText = getText(`relay.${item.code}.desc`, item.description);
+            const protText = getText(`relay.${item.code}.prot`, item.protection);
+
             return (
               <g key={item.code}>
                 {idx > 0 && <line x1="0" y1={rowY - 10} x2="280" y2={rowY - 10} stroke="#e2e8f0" strokeWidth="0.5" />}
                 <circle cx="32" cy={rowY - 3} r="5" fill="#fff" stroke="#000" strokeWidth="0.8" />
-                <text x="32" y={rowY} fontFamily="Arial, sans-serif" fontSize="6.5" fontWeight="bold" textAnchor="middle" fill="#000">
-                  {item.code}
-                </text>
-                <text x="70" y={rowY} fontFamily="Arial, sans-serif" fontSize="6" fill="#000">
-                  {item.description}
-                </text>
-                <text x="215" y={rowY} fontFamily="Arial, sans-serif" fontSize="6" fill="#000">
-                  {item.protection}
-                </text>
+                <EditableSvgText
+                  id={`relay.${item.code}.code`}
+                  x={32}
+                  y={rowY}
+                  text={codeText}
+                  label={`Relay Code ${item.code}`}
+                  onOpenEdit={onOpenEdit}
+                  fontSize="6.5"
+                  fontWeight="bold"
+                  textAnchor="middle"
+                  isEditMode={isEditMode}
+                />
+                <EditableSvgText
+                  id={`relay.${item.code}.desc`}
+                  x={70}
+                  y={rowY}
+                  text={descText}
+                  label={`คำอธิบาย Relay ${item.code}`}
+                  onOpenEdit={onOpenEdit}
+                  fontSize="6"
+                  isEditMode={isEditMode}
+                />
+                <EditableSvgText
+                  id={`relay.${item.code}.prot`}
+                  x={215}
+                  y={rowY}
+                  text={protText}
+                  label={`Protection Relay ${item.code}`}
+                  onOpenEdit={onOpenEdit}
+                  fontSize="6"
+                  isEditMode={isEditMode}
+                />
               </g>
             );
           })}
@@ -373,9 +437,19 @@ export const TechnicalNotesAndSpecs: React.FC<{
             {/* Checkbox */}
             <rect x="25" y="32" width="9" height="9" fill="#fff" stroke="#000" strokeWidth="0.8" />
             <path d="M 27 36 L 29 39 L 33 33" fill="none" stroke="#000" strokeWidth="1.2" />
-            <text x="40" y="40" fontFamily="Arial, sans-serif" fontSize="7.5" fill="#000">
-              Zero Export Device ยี่ห้อ {inverterConfig.brand} รุ่น {combinerConfig.gatewayModel}
-            </text>
+            <EditableSvgText
+              id="notes.zeroExport"
+              x={40}
+              y={40}
+              text={getText(
+                'notes.zeroExport',
+                `Zero Export Device ยี่ห้อ ${inverterConfig.brand} รุ่น ${combinerConfig.gatewayModel}`
+              )}
+              label="ข้อความ Zero Export Note"
+              onOpenEdit={onOpenEdit}
+              fontSize="7.5"
+              isEditMode={isEditMode}
+            />
           </g>
         )}
 
@@ -387,9 +461,19 @@ export const TechnicalNotesAndSpecs: React.FC<{
             {/* Checkbox */}
             <rect x="25" y="20" width="9" height="9" fill="#fff" stroke="#000" strokeWidth="0.8" />
             <path d="M 27 24 L 29 27 L 33 21" fill="none" stroke="#000" strokeWidth="1.2" />
-            <text x="40" y="28" fontFamily="Arial, sans-serif" fontSize="7.5" fill="#000">
-              {combinerConfig.rcboRating} {combinerConfig.rcboType} ร่วมกับอุปกรณ์ป้องกันกระแสเกิน {combinerConfig.mccbRating}
-            </text>
+            <EditableSvgText
+              id="notes.phaseProtection"
+              x={40}
+              y={28}
+              text={getText(
+                'notes.phaseProtection',
+                `${combinerConfig.rcboRating} ${combinerConfig.rcboType} ร่วมกับอุปกรณ์ป้องกันกระแสเกิน ${combinerConfig.mccbRating}`
+              )}
+              label="ข้อความระบบป้องกันทางด้านเฟสและกราวด์"
+              onOpenEdit={onOpenEdit}
+              fontSize="7.5"
+              isEditMode={isEditMode}
+            />
           </g>
         )}
       </g>
@@ -397,40 +481,121 @@ export const TechnicalNotesAndSpecs: React.FC<{
       {/* 3. Summary Bullet points */}
       <g transform={`translate(0, ${showRelayTable ? 220 : 100})`}>
         {/* Bullet 1: PV Modules */}
-        <text x="0" y="14" fontFamily="Arial, sans-serif" fontSize="8" fill="#000">
-          - แผงโซลาร์เซลล์ ยี่ห้อ {pvConfig.brand} รุ่น {pvConfig.model}
-        </text>
-        <text x="10" y="26" fontFamily="Arial, sans-serif" fontSize="8" fill="#000">
-          กำลังผลิต {pvConfig.powerPerPanel} Wp ต่อแผง จำนวน {pvConfig.panelCount} แผง
-        </text>
-        <text x="10" y="38" fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
-          รวมกำลังการผลิตติดตั้ง {pvConfig.totalKwp} kWp
-        </text>
+        <EditableSvgText
+          id="summary.pvBrand"
+          x={0}
+          y={14}
+          text={getText('summary.pvBrand', `- แผงโซลาร์เซลล์ ยี่ห้อ ${pvConfig.brand} รุ่น ${pvConfig.model}`)}
+          label="ข้อความแผงโซลาร์เซลล์ (ยี่ห้อ/รุ่น)"
+          onOpenEdit={onOpenEdit}
+          fontSize="8"
+          isEditMode={isEditMode}
+        />
+        <EditableSvgText
+          id="summary.pvPower"
+          x={10}
+          y={26}
+          text={getText('summary.pvPower', `กำลังผลิต ${pvConfig.powerPerPanel} Wp ต่อแผง จำนวน ${pvConfig.panelCount} แผง`)}
+          label="ข้อความกำลังผลิตแผงและจำนวนแผง"
+          onOpenEdit={onOpenEdit}
+          fontSize="8"
+          isEditMode={isEditMode}
+        />
+        <EditableSvgText
+          id="summary.pvTotal"
+          x={10}
+          y={38}
+          text={getText('summary.pvTotal', `รวมกำลังการผลิตติดตั้ง ${pvConfig.totalKwp} kWp`)}
+          label="ข้อความรวมกำลังติดตั้งโซลาร์ (kWp)"
+          onOpenEdit={onOpenEdit}
+          fontSize="8"
+          fontWeight="bold"
+          isEditMode={isEditMode}
+        />
 
         {/* Bullet 2: Inverter */}
-        <text x="0" y="58" fontFamily="Arial, sans-serif" fontSize="8" fill="#000">
-          - {inverterConfig.systemType === 'microinverter' ? 'ไมโครอินเวอร์เตอร์' : 'อินเวอร์เตอร์'} ยี่ห้อ {inverterConfig.brand} รุ่น {inverterConfig.model}
-        </text>
-        <text x="10" y="70" fontFamily="Arial, sans-serif" fontSize="7.5" fill="#000">
-          พร้อมฟังก์ชัน {inverterConfig.hasAntiIslanding ? 'Anti-Islanding' : ''} {inverterConfig.hasRapidShutdown ? 'และ Rapid Shutdown' : ''}
-        </text>
+        <EditableSvgText
+          id="summary.invBrand"
+          x={0}
+          y={58}
+          text={getText(
+            'summary.invBrand',
+            `- ${inverterConfig.systemType === 'microinverter' ? 'ไมโครอินเวอร์เตอร์' : 'อินเวอร์เตอร์'} ยี่ห้อ ${inverterConfig.brand} รุ่น ${inverterConfig.model}`
+          )}
+          label="ข้อความยี่ห้อและรุ่นอินเวอร์เตอร์"
+          onOpenEdit={onOpenEdit}
+          fontSize="8"
+          isEditMode={isEditMode}
+        />
+        <EditableSvgText
+          id="summary.invProtection"
+          x={10}
+          y={70}
+          text={getText(
+            'summary.invProtection',
+            `พร้อมฟังก์ชัน ${inverterConfig.hasAntiIslanding ? 'Anti-Islanding' : ''} ${inverterConfig.hasRapidShutdown ? 'และ Rapid Shutdown' : ''}`
+          )}
+          label="ข้อความฟังก์ชันป้องกันอินเวอร์เตอร์"
+          onOpenEdit={onOpenEdit}
+          fontSize="7.5"
+          isEditMode={isEditMode}
+        />
         {inverterConfig.systemType === 'microinverter' ? (
           <>
-            <text x="10" y="82" fontFamily="Arial, sans-serif" fontSize="8" fill="#000">
-              กำลังผลิต {inverterConfig.unitPowerKw} kW จำนวน {inverterConfig.microinverterCount} เครื่อง
-            </text>
-            <text x="10" y="94" fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
-              รวมกำลังเอาต์พุตทั้งระบบ {inverterConfig.totalOutputKw} kW ({inverterConfig.totalOutputKva} kVA)
-            </text>
+            <EditableSvgText
+              id="summary.microCount"
+              x={10}
+              y={82}
+              text={getText(
+                'summary.microCount',
+                `กำลังผลิต ${inverterConfig.unitPowerKw} kW จำนวน ${inverterConfig.microinverterCount} เครื่อง`
+              )}
+              label="ข้อความจำนวนไมโครอินเวอร์เตอร์"
+              onOpenEdit={onOpenEdit}
+              fontSize="8"
+              isEditMode={isEditMode}
+            />
+            <EditableSvgText
+              id="summary.microOutput"
+              x={10}
+              y={94}
+              text={getText(
+                'summary.microOutput',
+                `รวมกำลังเอาต์พุตทั้งระบบ ${inverterConfig.totalOutputKw} kW (${inverterConfig.totalOutputKva} kVA)`
+              )}
+              label="ข้อความกำลังผลิตรวม AC"
+              onOpenEdit={onOpenEdit}
+              fontSize="8"
+              fontWeight="bold"
+              isEditMode={isEditMode}
+            />
           </>
         ) : (
           <>
-            <text x="10" y="82" fontFamily="Arial, sans-serif" fontSize="8" fill="#000">
-              กำลังผลิต {inverterConfig.stringInverterCapacityKw} kW จำนวน {inverterConfig.stringInverterQuantity} เครื่อง
-            </text>
-            <text x="10" y="94" fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
-              รวมกำลังเอาต์พุตทั้งระบบ {inverterConfig.totalOutputKw} kW
-            </text>
+            <EditableSvgText
+              id="summary.stringCount"
+              x={10}
+              y={82}
+              text={getText(
+                'summary.stringCount',
+                `กำลังผลิต ${inverterConfig.stringInverterCapacityKw} kW จำนวน ${inverterConfig.stringInverterQuantity} เครื่อง`
+              )}
+              label="ข้อความกำลังผลิตและจำนวนอินเวอร์เตอร์"
+              onOpenEdit={onOpenEdit}
+              fontSize="8"
+              isEditMode={isEditMode}
+            />
+            <EditableSvgText
+              id="summary.stringOutput"
+              x={10}
+              y={94}
+              text={getText('summary.stringOutput', `รวมกำลังเอาต์พุตทั้งระบบ ${inverterConfig.totalOutputKw} kW`)}
+              label="ข้อความรวมกำลังเอาต์พุต String Inverter"
+              onOpenEdit={onOpenEdit}
+              fontSize="8"
+              fontWeight="bold"
+              isEditMode={isEditMode}
+            />
           </>
         )}
       </g>
@@ -444,46 +609,125 @@ export const TechnicalNotesAndSpecs: React.FC<{
           PV MODULE
         </text>
         <line x1="90" y1="14" x2="90" y2="28" stroke="#000" strokeWidth="0.8" />
-        <text x="8" y="24" fontFamily="Arial, sans-serif" fontSize="7" fontWeight="bold" fill="#000">
-          BRAND: {pvConfig.brand}
-        </text>
-        <text x="96" y="24" fontFamily="Arial, sans-serif" fontSize="7" fontWeight="bold" fill="#000">
-          MODEL: {pvConfig.model}
-        </text>
+        <EditableSvgText
+          id="spec.pvBrand"
+          x={8}
+          y={24}
+          text={getText('spec.pvBrand', `BRAND: ${pvConfig.brand}`)}
+          label="ตารางสเปก BRAND แผง"
+          onOpenEdit={onOpenEdit}
+          fontSize="7"
+          fontWeight="bold"
+          isEditMode={isEditMode}
+        />
+        <EditableSvgText
+          id="spec.pvModel"
+          x={96}
+          y={24}
+          text={getText('spec.pvModel', `MODEL: ${pvConfig.model}`)}
+          label="ตารางสเปก MODEL แผง"
+          onOpenEdit={onOpenEdit}
+          fontSize="7"
+          fontWeight="bold"
+          isEditMode={isEditMode}
+        />
         <line x1="0" y1="28" x2="280" y2="28" stroke="#000" strokeWidth="0.8" />
-        <text x="8" y="38" fontFamily="Arial, sans-serif" fontSize="6.5" fill="#000">
-          Pm = {pvConfig.powerPerPanel} Wp | Voc = {pvConfig.voc} V | Isc = {pvConfig.isc} A | Vmp = {pvConfig.vmp} V | Imp = {pvConfig.imp} A
-        </text>
+        <EditableSvgText
+          id="spec.pvElectrical"
+          x={8}
+          y={38}
+          text={getText(
+            'spec.pvElectrical',
+            `Pm = ${pvConfig.powerPerPanel} Wp | Voc = ${pvConfig.voc} V | Isc = ${pvConfig.isc} A | Vmp = ${pvConfig.vmp} V | Imp = ${pvConfig.imp} A`
+          )}
+          label="ตารางสเปกไฟฟ้าแผง (Pm, Voc, Isc, Vmp, Imp)"
+          onOpenEdit={onOpenEdit}
+          fontSize="6.5"
+          isEditMode={isEditMode}
+        />
 
         {/* Inverter Spec Table */}
         <g transform="translate(0, 50)">
           <rect x="0" y="0" width="280" height="52" fill="#fff" stroke="#000" strokeWidth="1" />
-          <text x="8" y="14" fontFamily="Arial, sans-serif" fontSize="7.5" fontWeight="bold" fill="#000">
-            {inverterConfig.brand} {inverterConfig.systemType === 'microinverter' ? 'Microinverters' : 'Inverter'} : {inverterConfig.model}
-          </text>
+          <EditableSvgText
+            id="spec.invHeader"
+            x={8}
+            y={14}
+            text={getText(
+              'spec.invHeader',
+              `${inverterConfig.brand} ${inverterConfig.systemType === 'microinverter' ? 'Microinverters' : 'Inverter'} : ${inverterConfig.model}`
+            )}
+            label="หัวข้อตารางสเปก Inverter"
+            onOpenEdit={onOpenEdit}
+            fontSize="7.5"
+            fontWeight="bold"
+            isEditMode={isEditMode}
+          />
           {inverterConfig.systemType === 'microinverter' ? (
             <>
-              <text x="8" y="26" fontFamily="Arial, sans-serif" fontSize="7" fill="#000">
-                Maximum apparent power = {inverterConfig.unitPowerVa} VA
-              </text>
-              <text x="8" y="37" fontFamily="Arial, sans-serif" fontSize="7" fill="#000">
-                Rated power = {(inverterConfig.unitPowerKw * 1000).toFixed(0)} W
-              </text>
-              <text x="8" y="48" fontFamily="Arial, sans-serif" fontSize="7" fill="#000">
-                Maximum output current = {inverterConfig.unitMaxCurrent} A
-              </text>
+              <EditableSvgText
+                id="spec.invVa"
+                x={8}
+                y={26}
+                text={getText('spec.invVa', `Maximum apparent power = ${inverterConfig.unitPowerVa} VA`)}
+                label="สเปก Maximum Apparent Power"
+                onOpenEdit={onOpenEdit}
+                fontSize="7"
+                isEditMode={isEditMode}
+              />
+              <EditableSvgText
+                id="spec.invRatedW"
+                x={8}
+                y={37}
+                text={getText('spec.invRatedW', `Rated power = ${(inverterConfig.unitPowerKw * 1000).toFixed(0)} W`)}
+                label="สเปก Rated Power (W)"
+                onOpenEdit={onOpenEdit}
+                fontSize="7"
+                isEditMode={isEditMode}
+              />
+              <EditableSvgText
+                id="spec.invCurrent"
+                x={8}
+                y={48}
+                text={getText('spec.invCurrent', `Maximum output current = ${inverterConfig.unitMaxCurrent} A`)}
+                label="สเปก Maximum Output Current"
+                onOpenEdit={onOpenEdit}
+                fontSize="7"
+                isEditMode={isEditMode}
+              />
             </>
           ) : (
             <>
-              <text x="8" y="26" fontFamily="Arial, sans-serif" fontSize="7" fill="#000">
-                Maximum apparent power = {(inverterConfig.unitPowerVa / 1000).toFixed(1)} kVA
-              </text>
-              <text x="8" y="37" fontFamily="Arial, sans-serif" fontSize="7" fill="#000">
-                Rated power = {inverterConfig.stringInverterCapacityKw} kW
-              </text>
-              <text x="8" y="48" fontFamily="Arial, sans-serif" fontSize="7" fill="#000">
-                Maximum output current = {inverterConfig.unitMaxCurrent} A
-              </text>
+              <EditableSvgText
+                id="spec.invKva"
+                x={8}
+                y={26}
+                text={getText('spec.invKva', `Maximum apparent power = ${(inverterConfig.unitPowerVa / 1000).toFixed(1)} kVA`)}
+                label="สเปก Maximum Apparent Power (kVA)"
+                onOpenEdit={onOpenEdit}
+                fontSize="7"
+                isEditMode={isEditMode}
+              />
+              <EditableSvgText
+                id="spec.invRatedKw"
+                x={8}
+                y={37}
+                text={getText('spec.invRatedKw', `Rated power = ${inverterConfig.stringInverterCapacityKw} kW`)}
+                label="สเปก Rated Power (kW)"
+                onOpenEdit={onOpenEdit}
+                fontSize="7"
+                isEditMode={isEditMode}
+              />
+              <EditableSvgText
+                id="spec.invCurrent"
+                x={8}
+                y={48}
+                text={getText('spec.invCurrent', `Maximum output current = ${inverterConfig.unitMaxCurrent} A`)}
+                label="สเปก Maximum Output Current"
+                onOpenEdit={onOpenEdit}
+                fontSize="7"
+                isEditMode={isEditMode}
+              />
             </>
           )}
         </g>

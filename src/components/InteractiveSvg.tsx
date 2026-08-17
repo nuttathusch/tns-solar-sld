@@ -3,6 +3,7 @@ import type { ElementOffset } from '../types/solar';
 
 interface DraggableGroupProps {
   id: string;
+  name?: string;
   initialX: number;
   initialY: number;
   offset?: ElementOffset;
@@ -14,11 +15,12 @@ interface DraggableGroupProps {
 
 export const DraggableGroup: React.FC<DraggableGroupProps> = ({
   id,
+  name,
   initialX,
   initialY,
   offset = { dx: 0, dy: 0 },
   onOffsetChange,
-  isMoveMode = true,
+  isMoveMode = false,
   children,
   className = '',
 }) => {
@@ -38,9 +40,8 @@ export const DraggableGroup: React.FC<DraggableGroupProps> = ({
   const handleMouseMove = (e: React.MouseEvent<SVGGElement>) => {
     if (!isDragging || !dragStart) return;
     e.stopPropagation();
-    const scale = 1; // Handled relatively
-    const deltaX = (e.clientX - dragStart.x) * scale;
-    const deltaY = (e.clientY - dragStart.y) * scale;
+    const deltaX = e.clientX - dragStart.x;
+    const deltaY = e.clientY - dragStart.y;
 
     onOffsetChange(id, {
       dx: (offset.dx || 0) + deltaX,
@@ -64,21 +65,42 @@ export const DraggableGroup: React.FC<DraggableGroupProps> = ({
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      className={`draggable-group ${isMoveMode ? 'cursor-move' : ''} ${className}`}
+      className={`draggable-group transition-all ${
+        isMoveMode
+          ? isDragging
+            ? 'cursor-grabbing select-none opacity-90'
+            : 'cursor-grab hover:opacity-95'
+          : ''
+      } ${className}`}
       style={{ userSelect: 'none' }}
     >
+      {/* Visual Bounding Outline in Move Mode */}
       {isMoveMode && (
-        <rect
-          x={-4}
-          y={-4}
-          width="100%"
-          height="100%"
-          fill="transparent"
-          stroke={isDragging ? '#f59e0b' : 'transparent'}
-          strokeWidth="1.5"
-          strokeDasharray="3 3"
-          className="hover:stroke-amber-400/50 transition"
-        />
+        <g className="pointer-events-none">
+          <rect
+            x={-6}
+            y={-6}
+            width="100%"
+            height="100%"
+            fill="transparent"
+            stroke={isDragging ? '#38bdf8' : '#f59e0b'}
+            strokeWidth="1.5"
+            strokeDasharray={isDragging ? '4 2' : '3 3'}
+            className="animate-pulse"
+          />
+          {name && (
+            <text
+              x={0}
+              y={-10}
+              fontFamily="Arial, sans-serif"
+              fontSize="8"
+              fontWeight="bold"
+              fill={isDragging ? '#0284c7' : '#d97706'}
+            >
+              🖐️ {name} (คลิกลากขยับได้)
+            </text>
+          )}
+        </g>
       )}
       {children}
     </g>
@@ -86,11 +108,12 @@ export const DraggableGroup: React.FC<DraggableGroupProps> = ({
 };
 
 interface EditableSvgTextProps {
+  id: string;
   x: number;
   y: number;
   text: string;
-  fieldLabel?: string;
-  onEdit: (newValue: string) => void;
+  label?: string;
+  onOpenEdit: (id: string, text: string, label: string) => void;
   fontFamily?: string;
   fontSize?: number | string;
   fontWeight?: string | number;
@@ -98,37 +121,38 @@ interface EditableSvgTextProps {
   fill?: string;
   className?: string;
   isEditMode?: boolean;
+  dy?: number | string;
+  children?: React.ReactNode;
 }
 
 export const EditableSvgText: React.FC<EditableSvgTextProps> = ({
+  id,
   x,
   y,
   text,
-  fieldLabel,
-  onEdit,
+  label,
+  onOpenEdit,
   fontFamily = 'Arial, sans-serif',
-  fontSize = 9,
+  fontSize = 8.5,
   fontWeight = 'normal',
   textAnchor = 'start',
   fill = '#000000',
   className = '',
   isEditMode = true,
+  dy,
+  children,
 }) => {
   const handleClick = (e: React.MouseEvent) => {
+    if (!isEditMode) return;
     e.stopPropagation();
-    const promptMsg = fieldLabel
-      ? `แก้ไข ${fieldLabel}:`
-      : `แก้ไขข้อความ (เดิม: "${text}"):`;
-    const result = window.prompt(promptMsg, text);
-    if (result !== null && result !== text) {
-      onEdit(result);
-    }
+    onOpenEdit(id, text, label || 'ข้อความในแบบ');
   };
 
   return (
     <text
       x={x}
       y={y}
+      dy={dy}
       fontFamily={fontFamily}
       fontSize={fontSize}
       fontWeight={fontWeight}
@@ -137,12 +161,12 @@ export const EditableSvgText: React.FC<EditableSvgTextProps> = ({
       onClick={handleClick}
       className={`select-none transition-all ${
         isEditMode
-          ? 'cursor-pointer hover:fill-amber-600 hover:font-bold underline-offset-2'
+          ? 'cursor-pointer hover:fill-amber-600 hover:font-bold underline decoration-amber-400 decoration-dotted'
           : ''
       } ${className}`}
     >
-      {isEditMode && <title>{`คลิกเพื่อแก้ไข "${text}"`}</title>}
-      {text}
+      {isEditMode && <title>{`✏️ คลิกเพื่อแก้ไข: "${text}"`}</title>}
+      {children || text}
     </text>
   );
 };

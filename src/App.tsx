@@ -28,6 +28,8 @@ export function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [zoom, setZoom] = useState<number>(0.85);
   const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [isEditMode, setIsEditMode] = useState<boolean>(true);
+  const [isMoveMode, setIsMoveMode] = useState<boolean>(false);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   const refreshSavedCount = () => {
@@ -135,6 +137,10 @@ export function App() {
         zoom={zoom}
         setZoom={setZoom}
         isExporting={isExporting}
+        isEditMode={isEditMode}
+        setIsEditMode={setIsEditMode}
+        isMoveMode={isMoveMode}
+        setIsMoveMode={setIsMoveMode}
       />
 
       {/* Main Workspace Layout */}
@@ -155,6 +161,10 @@ export function App() {
             svgRef={svgRef}
             zoom={zoom}
             onProjectChange={setProject}
+            isMoveMode={isMoveMode}
+            setIsMoveMode={setIsMoveMode}
+            isEditMode={isEditMode}
+            setIsEditMode={setIsEditMode}
           />
         </main>
       </div>
