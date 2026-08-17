@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "deploy": "npm run build && git checkout -B gh-pages && git add -f dist && git commit -m \"deploy: build for GitHub Pages\" && git push -f origin `git subtree split --prefix dist gh-pages`:refs/heads/gh-pages && git checkout main",
     "lint": "oxlint",
     "preview": "vite preview"
   },
