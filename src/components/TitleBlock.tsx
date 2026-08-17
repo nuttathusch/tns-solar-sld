@@ -10,6 +10,35 @@ interface TitleBlockProps {
   height: number;
 }
 
+// Pure SVG Text Wrapping Utility (No foreignObject - 100% SVG/Canvas/PDF safe)
+function splitIntoLines(text: string, maxChars: number = 28): string[] {
+  if (!text) return [];
+  // If string contains explicit newlines, respect them
+  const rawParts = text.split('\n');
+  const result: string[] = [];
+
+  for (const part of rawParts) {
+    const words = part.split(' ');
+    let currentLine = '';
+
+    for (const word of words) {
+      if (!currentLine) {
+        currentLine = word;
+      } else if ((currentLine + ' ' + word).length <= maxChars) {
+        currentLine += ' ' + word;
+      } else {
+        result.push(currentLine);
+        currentLine = word;
+      }
+    }
+    if (currentLine) {
+      result.push(currentLine);
+    }
+  }
+
+  return result;
+}
+
 export const TitleBlock: React.FC<TitleBlockProps> = ({
   project,
   x,
@@ -20,6 +49,7 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
   const { projectInfo } = project;
   const leftX = x;
   const rightX = x + width;
+  const centerX = x + width / 2;
 
   // Vertical divisions for Title Block rows
   const rowHeights = [
@@ -41,6 +71,10 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
     return r;
   });
 
+  const projectNameLines = splitIntoLines(projectInfo.projectName || 'Solar Rooftop', 24);
+  const ownerLines = splitIntoLines(projectInfo.customerName || '', 22);
+  const locationLines = splitIntoLines(projectInfo.location || '', 26);
+
   return (
     <g className="title-block">
       {/* Outer Title Block Container */}
@@ -59,7 +93,7 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
       <text x={leftX + 8} y={rows[0].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         PROJECT OWNER :
       </text>
-      <text x={leftX + width / 2} y={rows[0].y + 48} fontFamily="Arial, sans-serif" fontSize="10.5" fontWeight="bold" textAnchor="middle" fill="#000">
+      <text x={centerX} y={rows[0].y + 48} fontFamily="Arial, sans-serif" fontSize="10.5" fontWeight="bold" textAnchor="middle" fill="#000">
         {projectInfo.projectOwner || 'TNS Network Solutions Co.,Ltd.'}
       </text>
 
@@ -68,43 +102,59 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
       <text x={leftX + 8} y={rows[1].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         PROJECT NAME :
       </text>
-      <foreignObject x={leftX + 8} y={rows[1].y + 24} width={width - 16} height={rows[1].height - 28}>
-        <div style={{ textAlign: 'center', fontSize: '10px', fontWeight: 600, color: '#000', lineHeight: '1.3' }}>
-          {projectInfo.projectName}
-        </div>
-      </foreignObject>
+      <text x={centerX} y={rows[1].y + 36} fontFamily="Arial, sans-serif" fontSize="9" fontWeight="bold" textAnchor="middle" fill="#000">
+        {projectNameLines.map((line, idx) => (
+          <tspan key={idx} x={centerX} dy={idx === 0 ? 0 : 13}>
+            {line}
+          </tspan>
+        ))}
+      </text>
 
       {/* Row 2: OWNER */}
       <line x1={leftX} y1={rows[2].y + rows[2].height} x2={rightX} y2={rows[2].y + rows[2].height} stroke="#000" strokeWidth="1" />
       <text x={leftX + 8} y={rows[2].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         OWNER :
       </text>
-      <foreignObject x={leftX + 8} y={rows[2].y + 24} width={width - 16} height={rows[2].height - 28}>
-        <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: 'bold', color: '#000' }}>
-          {projectInfo.customerName}
-        </div>
-      </foreignObject>
+      <text x={centerX} y={rows[2].y + 42} fontFamily="Arial, sans-serif" fontSize="10.5" fontWeight="bold" textAnchor="middle" fill="#000">
+        {ownerLines.map((line, idx) => (
+          <tspan key={idx} x={centerX} dy={idx === 0 ? 0 : 14}>
+            {line}
+          </tspan>
+        ))}
+      </text>
 
       {/* Row 3: LOCATION */}
       <line x1={leftX} y1={rows[3].y + rows[3].height} x2={rightX} y2={rows[3].y + rows[3].height} stroke="#000" strokeWidth="1" />
       <text x={leftX + 8} y={rows[3].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         LOCATION :
       </text>
-      <foreignObject x={leftX + 8} y={rows[3].y + 24} width={width - 16} height={rows[3].height - 28}>
-        <div style={{ textAlign: 'center', fontSize: '9px', color: '#000', lineHeight: '1.4' }}>
-          <div>{projectInfo.location}</div>
-          {projectInfo.coordinates && (
-            <div style={{ marginTop: '4px', fontWeight: 500 }}>{projectInfo.coordinates}</div>
-          )}
-        </div>
-      </foreignObject>
+      <text x={centerX} y={rows[3].y + 34} fontFamily="Arial, sans-serif" fontSize="8" textAnchor="middle" fill="#000">
+        {locationLines.map((line, idx) => (
+          <tspan key={idx} x={centerX} dy={idx === 0 ? 0 : 12}>
+            {line}
+          </tspan>
+        ))}
+      </text>
+      {projectInfo.coordinates && (
+        <text
+          x={centerX}
+          y={rows[3].y + rows[3].height - 12}
+          fontFamily="Arial, sans-serif"
+          fontSize="8"
+          fontWeight="bold"
+          textAnchor="middle"
+          fill="#000"
+        >
+          {projectInfo.coordinates}
+        </text>
+      )}
 
       {/* Row 4: JOB NO. */}
       <line x1={leftX} y1={rows[4].y + rows[4].height} x2={rightX} y2={rows[4].y + rows[4].height} stroke="#000" strokeWidth="1" />
       <text x={leftX + 8} y={rows[4].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         JOB NO. :
       </text>
-      <text x={leftX + width / 2} y={rows[4].y + 44} fontFamily="Arial, sans-serif" fontSize="10.5" fontWeight="bold" textAnchor="middle" fill="#000">
+      <text x={centerX} y={rows[4].y + 44} fontFamily="Arial, sans-serif" fontSize="10.5" fontWeight="bold" textAnchor="middle" fill="#000">
         {projectInfo.jobNo}
       </text>
 
@@ -114,7 +164,7 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
         ELECTRICAL ENGINEER :
       </text>
       {/* Signature Area */}
-      <g transform={`translate(${leftX + width / 2 - 40}, ${rows[5].y + 30})`}>
+      <g transform={`translate(${centerX - 40}, ${rows[5].y + 30})`}>
         {projectInfo.engineer.signatureImage ? (
           <image href={projectInfo.engineer.signatureImage} width="80" height="50" preserveAspectRatio="xMidYMid meet" />
         ) : (
@@ -127,10 +177,10 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
           />
         )}
       </g>
-      <text x={leftX + width / 2} y={rows[5].y + 105} fontFamily="Arial, sans-serif" fontSize="9" fontWeight="bold" textAnchor="middle" fill="#000">
+      <text x={centerX} y={rows[5].y + 105} fontFamily="Arial, sans-serif" fontSize="9" fontWeight="bold" textAnchor="middle" fill="#000">
         {projectInfo.engineer.name}
       </text>
-      <text x={leftX + width / 2} y={rows[5].y + 122} fontFamily="Arial, sans-serif" fontSize="8.5" textAnchor="middle" fill="#222">
+      <text x={centerX} y={rows[5].y + 122} fontFamily="Arial, sans-serif" fontSize="8.5" textAnchor="middle" fill="#222">
         {projectInfo.engineer.license}
       </text>
 
@@ -139,7 +189,7 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
       <text x={leftX + 8} y={rows[6].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         DATE :
       </text>
-      <text x={leftX + width / 2} y={rows[6].y + 40} fontFamily="Arial, sans-serif" fontSize="10" fontWeight="bold" textAnchor="middle" fill="#000">
+      <text x={centerX} y={rows[6].y + 40} fontFamily="Arial, sans-serif" fontSize="10" fontWeight="bold" textAnchor="middle" fill="#000">
         {projectInfo.date}
       </text>
 
@@ -148,7 +198,7 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
       <text x={leftX + 8} y={rows[7].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         REV / Version :
       </text>
-      <text x={leftX + width / 2} y={rows[7].y + 40} fontFamily="Arial, sans-serif" fontSize="10" fontWeight="bold" textAnchor="middle" fill="#000">
+      <text x={centerX} y={rows[7].y + 40} fontFamily="Arial, sans-serif" fontSize="10" fontWeight="bold" textAnchor="middle" fill="#000">
         {projectInfo.revision}
       </text>
 
@@ -156,7 +206,7 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
       <text x={leftX + 8} y={rows[8].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         DRAWING NO. :
       </text>
-      <text x={leftX + width / 2} y={rows[8].y + 45} fontFamily="Arial, sans-serif" fontSize="12" fontWeight="bold" textAnchor="middle" fill="#000">
+      <text x={centerX} y={rows[8].y + 45} fontFamily="Arial, sans-serif" fontSize="12" fontWeight="bold" textAnchor="middle" fill="#000">
         {projectInfo.drawingNo}
       </text>
     </g>
