@@ -8,12 +8,11 @@ interface TitleBlockProps {
   y: number;
   width: number;
   height: number;
+  onProjectChange?: (updater: (prev: SolarSLDProject) => SolarSLDProject) => void;
 }
 
-// Pure SVG Text Wrapping Utility (No foreignObject - 100% SVG/Canvas/PDF safe)
 function splitIntoLines(text: string, maxChars: number = 28): string[] {
   if (!text) return [];
-  // If string contains explicit newlines, respect them
   const rawParts = text.split('\n');
   const result: string[] = [];
 
@@ -45,11 +44,27 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
   y,
   width,
   height,
+  onProjectChange,
 }) => {
   const { projectInfo } = project;
   const leftX = x;
   const rightX = x + width;
   const centerX = x + width / 2;
+
+  const handleEdit = (field: keyof typeof projectInfo, label: string) => {
+    if (!onProjectChange) return;
+    const current = String(projectInfo[field] || '');
+    const newVal = window.prompt(`แก้ไข ${label}:`, current);
+    if (newVal !== null && newVal !== current) {
+      onProjectChange((prev) => ({
+        ...prev,
+        projectInfo: {
+          ...prev.projectInfo,
+          [field]: newVal,
+        },
+      }));
+    }
+  };
 
   // Vertical divisions for Title Block rows
   const rowHeights = [
@@ -93,7 +108,17 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
       <text x={leftX + 8} y={rows[0].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         PROJECT OWNER :
       </text>
-      <text x={centerX} y={rows[0].y + 48} fontFamily="Arial, sans-serif" fontSize="10.5" fontWeight="bold" textAnchor="middle" fill="#000">
+      <text
+        x={centerX}
+        y={rows[0].y + 48}
+        fontFamily="Arial, sans-serif"
+        fontSize="10.5"
+        fontWeight="bold"
+        textAnchor="middle"
+        fill="#000"
+        onClick={() => handleEdit('projectOwner', 'Project Owner')}
+        className="cursor-pointer hover:fill-amber-600"
+      >
         {projectInfo.projectOwner || 'TNS Network Solutions Co.,Ltd.'}
       </text>
 
@@ -102,7 +127,17 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
       <text x={leftX + 8} y={rows[1].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         PROJECT NAME :
       </text>
-      <text x={centerX} y={rows[1].y + 36} fontFamily="Arial, sans-serif" fontSize="9" fontWeight="bold" textAnchor="middle" fill="#000">
+      <text
+        x={centerX}
+        y={rows[1].y + 36}
+        fontFamily="Arial, sans-serif"
+        fontSize="9"
+        fontWeight="bold"
+        textAnchor="middle"
+        fill="#000"
+        onClick={() => handleEdit('projectName', 'Project Name')}
+        className="cursor-pointer hover:fill-amber-600"
+      >
         {projectNameLines.map((line, idx) => (
           <tspan key={idx} x={centerX} dy={idx === 0 ? 0 : 13}>
             {line}
@@ -115,7 +150,17 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
       <text x={leftX + 8} y={rows[2].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         OWNER :
       </text>
-      <text x={centerX} y={rows[2].y + 42} fontFamily="Arial, sans-serif" fontSize="10.5" fontWeight="bold" textAnchor="middle" fill="#000">
+      <text
+        x={centerX}
+        y={rows[2].y + 42}
+        fontFamily="Arial, sans-serif"
+        fontSize="10.5"
+        fontWeight="bold"
+        textAnchor="middle"
+        fill="#000"
+        onClick={() => handleEdit('customerName', 'ชื่อเจ้าของ / ผู้ขออนุญาต (Owner)')}
+        className="cursor-pointer hover:fill-amber-600"
+      >
         {ownerLines.map((line, idx) => (
           <tspan key={idx} x={centerX} dy={idx === 0 ? 0 : 14}>
             {line}
@@ -128,7 +173,16 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
       <text x={leftX + 8} y={rows[3].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         LOCATION :
       </text>
-      <text x={centerX} y={rows[3].y + 34} fontFamily="Arial, sans-serif" fontSize="8" textAnchor="middle" fill="#000">
+      <text
+        x={centerX}
+        y={rows[3].y + 34}
+        fontFamily="Arial, sans-serif"
+        fontSize="8"
+        textAnchor="middle"
+        fill="#000"
+        onClick={() => handleEdit('location', 'สถานที่ติดตั้ง (Location)')}
+        className="cursor-pointer hover:fill-amber-600"
+      >
         {locationLines.map((line, idx) => (
           <tspan key={idx} x={centerX} dy={idx === 0 ? 0 : 12}>
             {line}
@@ -144,6 +198,8 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
           fontWeight="bold"
           textAnchor="middle"
           fill="#000"
+          onClick={() => handleEdit('coordinates', 'พิกัด GPS')}
+          className="cursor-pointer hover:fill-amber-600"
         >
           {projectInfo.coordinates}
         </text>
@@ -154,7 +210,17 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
       <text x={leftX + 8} y={rows[4].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         JOB NO. :
       </text>
-      <text x={centerX} y={rows[4].y + 44} fontFamily="Arial, sans-serif" fontSize="10.5" fontWeight="bold" textAnchor="middle" fill="#000">
+      <text
+        x={centerX}
+        y={rows[4].y + 44}
+        fontFamily="Arial, sans-serif"
+        fontSize="10.5"
+        fontWeight="bold"
+        textAnchor="middle"
+        fill="#000"
+        onClick={() => handleEdit('jobNo', 'Job No.')}
+        className="cursor-pointer hover:fill-amber-600"
+      >
         {projectInfo.jobNo}
       </text>
 
@@ -189,7 +255,17 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
       <text x={leftX + 8} y={rows[6].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         DATE :
       </text>
-      <text x={centerX} y={rows[6].y + 40} fontFamily="Arial, sans-serif" fontSize="10" fontWeight="bold" textAnchor="middle" fill="#000">
+      <text
+        x={centerX}
+        y={rows[6].y + 40}
+        fontFamily="Arial, sans-serif"
+        fontSize="10"
+        fontWeight="bold"
+        textAnchor="middle"
+        fill="#000"
+        onClick={() => handleEdit('date', 'วันที่ (Date)')}
+        className="cursor-pointer hover:fill-amber-600"
+      >
         {projectInfo.date}
       </text>
 
@@ -198,7 +274,17 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
       <text x={leftX + 8} y={rows[7].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         REV / Version :
       </text>
-      <text x={centerX} y={rows[7].y + 40} fontFamily="Arial, sans-serif" fontSize="10" fontWeight="bold" textAnchor="middle" fill="#000">
+      <text
+        x={centerX}
+        y={rows[7].y + 40}
+        fontFamily="Arial, sans-serif"
+        fontSize="10"
+        fontWeight="bold"
+        textAnchor="middle"
+        fill="#000"
+        onClick={() => handleEdit('revision', 'Revision')}
+        className="cursor-pointer hover:fill-amber-600"
+      >
         {projectInfo.revision}
       </text>
 
@@ -206,7 +292,17 @@ export const TitleBlock: React.FC<TitleBlockProps> = ({
       <text x={leftX + 8} y={rows[8].y + 16} fontFamily="Arial, sans-serif" fontSize="8" fontWeight="bold" fill="#000">
         DRAWING NO. :
       </text>
-      <text x={centerX} y={rows[8].y + 45} fontFamily="Arial, sans-serif" fontSize="12" fontWeight="bold" textAnchor="middle" fill="#000">
+      <text
+        x={centerX}
+        y={rows[8].y + 45}
+        fontFamily="Arial, sans-serif"
+        fontSize="12"
+        fontWeight="bold"
+        textAnchor="middle"
+        fill="#000"
+        onClick={() => handleEdit('drawingNo', 'Drawing No.')}
+        className="cursor-pointer hover:fill-amber-600"
+      >
         {projectInfo.drawingNo}
       </text>
     </g>

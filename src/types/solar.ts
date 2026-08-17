@@ -35,13 +35,13 @@ export interface ProjectInfo {
 export interface PVModuleConfig {
   brand: string;
   model: string;
-  powerPerPanel: number; // Watt (e.g. 650)
-  panelCount: number;    // Count (e.g. 8)
-  voc: number;          // V
-  isc: number;          // A
-  vmp: number;          // V
-  imp: number;          // A
-  totalKwp: number;     // kWp (auto-calculated)
+  powerPerPanel: number;
+  panelCount: number;
+  voc: number;
+  isc: number;
+  vmp: number;
+  imp: number;
+  totalKwp: number;
 }
 
 export interface InverterConfig {
@@ -49,18 +49,15 @@ export interface InverterConfig {
   brand: string;
   model: string;
   phase: PhaseType;
-  // Microinverter specific:
-  microinverterCount: number; // Qty (e.g. 8)
-  unitPowerKw: number;        // kW per microinverter (e.g. 0.475)
-  unitPowerVa: number;        // VA per microinverter (e.g. 480)
-  unitMaxCurrent: number;     // A per microinverter (e.g. 2.07)
-  // String Inverter specific:
-  stringInverterCapacityKw: number; // kW (e.g. 5, 10, 20, 50, 100)
-  stringInverterQuantity: number;  // Inverter count (default 1)
-  stringCount: number;             // number of strings (e.g. 2)
-  modulesPerString: number;        // modules per string (e.g. 8)
-  mpptCount: number;               // MPPT count
-  // Overall output:
+  microinverterCount: number;
+  unitPowerKw: number;
+  unitPowerVa: number;
+  unitMaxCurrent: number;
+  stringInverterCapacityKw: number;
+  stringInverterQuantity: number;
+  stringCount: number;
+  modulesPerString: number;
+  mpptCount: number;
   totalOutputKw: number;
   totalOutputKva: number;
   hasAntiIslanding: boolean;
@@ -83,7 +80,6 @@ export interface CombinerConfig {
   cableCombinerToMdb: string;
   groundRodSpec: string;
   groundCableSpec: string;
-  // String inverter DC protection:
   dcFuseRating?: string;
   dcIsolatorRating?: string;
   dcSpdRating?: string;
@@ -91,11 +87,16 @@ export interface CombinerConfig {
 }
 
 export interface LoadCenterConfig {
-  title: string; // "Consumer Unit" or "Load Center" or "MDB"
+  title: string;
   mainBreaker: string;
   solarFeederBreaker: string;
   busbarSpec: string;
   groundRodSpec: string;
+}
+
+export interface ElementOffset {
+  dx: number;
+  dy: number;
 }
 
 export interface SolarSLDProject {
@@ -112,4 +113,5 @@ export interface SolarSLDProject {
   customNotes?: string[];
   paperSize: 'A3' | 'A4';
   orientation: 'landscape';
+  customOffsets?: Record<string, ElementOffset>;
 }

@@ -149,8 +149,13 @@ export function App() {
           {/* Subtle Grid Background */}
           <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none opacity-50" />
 
-          {/* SVG Drawing Canvas */}
-          <SldCanvas project={project} svgRef={svgRef} zoom={zoom} />
+          {/* SVG Drawing Canvas with Direct Edit & CAD Dragging */}
+          <SldCanvas
+            project={project}
+            svgRef={svgRef}
+            zoom={zoom}
+            onProjectChange={setProject}
+          />
         </main>
       </div>
 

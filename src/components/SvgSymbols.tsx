@@ -7,11 +7,11 @@ export const CircuitBreakerSymbol: React.FC<{
   poles?: 1 | 2 | 3 | 4;
   label?: string;
   sublabel?: string;
-  isRcbo?: boolean;
-}> = ({ x, y, poles = 3, label, sublabel }) => {
-  const poleSpacing = 16;
-  const width = (poles - 1) * poleSpacing;
-  const startX = x - width / 2;
+  alignFromLeft?: boolean;
+}> = ({ x, y, poles = 2, label, sublabel, alignFromLeft = true }) => {
+  const poleSpacing = 18;
+  const startX = alignFromLeft ? x : x - ((poles - 1) * poleSpacing) / 2;
+  const totalWidth = (poles - 1) * poleSpacing;
 
   return (
     <g className="circuit-breaker-symbol">
@@ -19,37 +19,42 @@ export const CircuitBreakerSymbol: React.FC<{
         const px = startX + i * poleSpacing;
         return (
           <g key={i}>
-            {/* Top connection point */}
-            <line x1={px} y1={y - 18} x2={px} y2={y - 8} stroke="#000" strokeWidth="1.5" />
-            {/* Switch contact */}
-            <line x1={px} y1={y - 8} x2={px + 6} y2={y + 8} stroke="#000" strokeWidth="1.5" />
-            {/* X cross for circuit breaker */}
-            <line x1={px - 4} y1={y - 3} x2={px + 4} y2={y + 3} stroke="#000" strokeWidth="1.2" />
-            <line x1={px + 4} y1={y - 3} x2={px - 4} y2={y + 3} stroke="#000" strokeWidth="1.2" />
-            {/* Bottom connection point */}
-            <line x1={px} y1={y + 8} x2={px} y2={y + 18} stroke="#000" strokeWidth="1.5" />
+            {/* Top terminal point */}
+            <line x1={px} y1={y - 18} x2={px} y2={y - 8} stroke="#000" strokeWidth="1.6" />
+            <circle cx={px} cy={y - 8} r="1.5" fill="#000" />
+
+            {/* Switch contact (angled) */}
+            <line x1={px} y1={y - 8} x2={px + 7} y2={y + 8} stroke="#000" strokeWidth="1.6" />
+
+            {/* Breaker 'X' thermal/magnetic trip element symbol */}
+            <line x1={px + 0.5} y1={y - 3} x2={px + 6.5} y2={y + 3} stroke="#000" strokeWidth="1.3" />
+            <line x1={px + 6.5} y1={y - 3} x2={px + 0.5} y2={y + 3} stroke="#000" strokeWidth="1.3" />
+
+            {/* Bottom terminal point */}
+            <circle cx={px} cy={y + 8} r="1.5" fill="#000" />
+            <line x1={px} y1={y + 8} x2={px} y2={y + 18} stroke="#000" strokeWidth="1.6" />
           </g>
         );
       })}
 
-      {/* Tie bar for multipole */}
+      {/* Mechanical Interlock Tie bar for multipole */}
       {poles > 1 && (
         <line
-          x1={startX - 2}
+          x1={startX + 3}
           y1={y}
-          x2={startX + width + 2}
+          x2={startX + totalWidth + 3}
           y2={y}
           stroke="#000"
-          strokeWidth="1"
-          strokeDasharray="2 2"
+          strokeWidth="1.1"
+          strokeDasharray="2.5 2"
         />
       )}
 
-      {/* Labels */}
+      {/* Labels with clear right-side margin */}
       {label && (
         <text
-          x={startX + width + 14}
-          y={y - 2}
+          x={startX + totalWidth + 18}
+          y={sublabel ? y - 3 : y + 3}
           fontFamily="Arial, sans-serif"
           fontSize="9"
           fontWeight="bold"
@@ -60,10 +65,10 @@ export const CircuitBreakerSymbol: React.FC<{
       )}
       {sublabel && (
         <text
-          x={startX + width + 14}
+          x={startX + totalWidth + 18}
           y={y + 10}
           fontFamily="Arial, sans-serif"
-          fontSize="8"
+          fontSize="7.5"
           fill="#333"
         >
           {sublabel}
@@ -79,18 +84,18 @@ export const RelayCircle: React.FC<{
   cy: number;
   radius?: number;
   code: string;
-}> = ({ cx, cy, radius = 10, code }) => {
+}> = ({ cx, cy, radius = 9, code }) => {
   return (
     <g>
-      <circle cx={cx} cy={cy} r={radius} fill="#fff" stroke="#000" strokeWidth="1.2" />
+      <circle cx={cx} cy={cy} r={radius} fill="#ffffff" stroke="#000000" strokeWidth="1.2" />
       <text
         x={cx}
-        y={cy + 3.5}
+        y={cy + 3.2}
         fontFamily="Arial, sans-serif"
-        fontSize="8"
+        fontSize="7.5"
         fontWeight="bold"
         textAnchor="middle"
-        fill="#000"
+        fill="#000000"
       >
         {code}
       </text>
@@ -107,10 +112,10 @@ export const GroundSymbol: React.FC<{
 }> = ({ x, y, size = 16, label }) => {
   return (
     <g>
-      <line x1={x} y1={y} x2={x} y2={y + 10} stroke="#000" strokeWidth="1.5" />
-      <line x1={x - size / 2} y1={y + 10} x2={x + size / 2} y2={y + 10} stroke="#000" strokeWidth="1.8" />
-      <line x1={x - size / 3} y1={y + 14} x2={x + size / 3} y2={y + 14} stroke="#000" strokeWidth="1.5" />
-      <line x1={x - size / 6} y1={y + 18} x2={x + size / 6} y2={y + 18} stroke="#000" strokeWidth="1.2" />
+      <line x1={x} y1={y} x2={x} y2={y + 8} stroke="#000" strokeWidth="1.5" />
+      <line x1={x - size / 2} y1={y + 8} x2={x + size / 2} y2={y + 8} stroke="#000" strokeWidth="1.8" />
+      <line x1={x - size / 3} y1={y + 12} x2={x + size / 3} y2={y + 12} stroke="#000" strokeWidth="1.5" />
+      <line x1={x - size / 6} y1={y + 16} x2={x + size / 6} y2={y + 16} stroke="#000" strokeWidth="1.2" />
       {label && (
         <text x={x + 12} y={y + 12} fontFamily="Arial, sans-serif" fontSize="8" fill="#000">
           {label}
@@ -129,13 +134,18 @@ export const SpdSymbol: React.FC<{
 }> = ({ x, y, label = 'AC SPD', typeText = 'TYPE II' }) => {
   return (
     <g>
-      <rect x={x - 20} y={y - 20} width={40} height={40} fill="#fff" stroke="#000" strokeWidth="1.2" />
-      <path d={`M ${x - 14} ${y - 12} L ${x + 6} ${y} L ${x - 4} ${y} L ${x + 14} ${y + 12}`} fill="none" stroke="#000" strokeWidth="1.5" />
-      <text x={x} y={y + 28} fontFamily="Arial, sans-serif" fontSize="7.5" fontWeight="bold" textAnchor="middle" fill="#000">
+      <rect x={x - 18} y={y - 18} width={36} height={36} fill="#ffffff" stroke="#000000" strokeWidth="1.2" />
+      <path
+        d={`M ${x - 12} ${y - 10} L ${x + 5} ${y} L ${x - 4} ${y} L ${x + 12} ${y + 10}`}
+        fill="none"
+        stroke="#000000"
+        strokeWidth="1.5"
+      />
+      <text x={x} y={y + 28} fontFamily="Arial, sans-serif" fontSize="7.5" fontWeight="bold" textAnchor="middle" fill="#000000">
         {label}
       </text>
       {typeText && (
-        <text x={x} y={y + 36} fontFamily="Arial, sans-serif" fontSize="7" textAnchor="middle" fill="#444">
+        <text x={x} y={y + 37} fontFamily="Arial, sans-serif" fontSize="6.5" textAnchor="middle" fill="#444444">
           {typeText}
         </text>
       )}
@@ -152,10 +162,10 @@ export const CtSymbol: React.FC<{
 }> = ({ cx, cy, radius = 7, label }) => {
   return (
     <g>
-      <circle cx={cx} cy={cy} r={radius} fill="none" stroke="#000" strokeWidth="1.5" />
-      <line x1={cx - radius - 3} y1={cy} x2={cx + radius + 3} y2={cy} stroke="#000" strokeWidth="1.2" />
+      <circle cx={cx} cy={cy} r={radius} fill="#ffffff" stroke="#000000" strokeWidth="1.5" />
+      <line x1={cx - radius - 3} y1={cy} x2={cx + radius + 3} y2={cy} stroke="#000000" strokeWidth="1.2" />
       {label && (
-        <text x={cx + radius + 5} y={cy + 3} fontFamily="Arial, sans-serif" fontSize="7.5" fill="#000">
+        <text x={cx + radius + 6} y={cy + 3} fontFamily="Arial, sans-serif" fontSize="7.5" fill="#000000">
           {label}
         </text>
       )}
